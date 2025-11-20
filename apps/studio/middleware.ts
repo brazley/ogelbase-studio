@@ -26,6 +26,11 @@ const HOSTED_SUPPORTED_API_URLS = [
 ]
 
 export function middleware(request: NextRequest) {
+  // Allow all /api/platform/* endpoints when running in platform mode
+  if (request.nextUrl.pathname.startsWith('/api/platform/')) {
+    return
+  }
+
   if (
     IS_PLATFORM &&
     !HOSTED_SUPPORTED_API_URLS.some((url) => request.nextUrl.pathname.endsWith(url))
