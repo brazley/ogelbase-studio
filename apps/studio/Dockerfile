@@ -50,6 +50,7 @@ CMD ["pnpm", "dev:studio"]
 
 # Compile Next.js
 FROM dev AS builder
+ENV NODE_OPTIONS="--max-old-space-size=8192"
 
 RUN pnpm --filter studio exec next build
 

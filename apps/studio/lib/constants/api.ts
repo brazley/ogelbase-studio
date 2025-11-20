@@ -18,4 +18,6 @@ export const DEFAULT_PROJECT = {
   status: 'ACTIVE_HEALTHY',
   region: 'local',
   inserted_at: '2021-08-02T06:40:40.646Z',
+  connectionString: process.env.DATABASE_URL || '',
+  restUrl: PROJECT_REST_URL,
 }

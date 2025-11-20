@@ -39,9 +39,9 @@ const config = {
   databaseUrl: process.env.DATABASE_URL,
 
   // Organization
-  orgName: process.env.DEFAULT_ORGANIZATION_NAME || 'OgelBase',
-  orgSlug: (process.env.DEFAULT_ORGANIZATION_NAME || 'ogelbase').toLowerCase().replace(/\s+/g, '-'),
-  orgEmail: 'billing@ogelbase.com',
+  orgName: process.env.DEFAULT_ORGANIZATION_NAME || 'Org 1',
+  orgSlug: (process.env.DEFAULT_ORGANIZATION_NAME || 'Org 1').toLowerCase().replace(/\s+/g, '-'),
+  orgEmail: 'admin@org1.com',
 
   // Project
   projectName: process.env.DEFAULT_PROJECT_NAME || 'Default Project',

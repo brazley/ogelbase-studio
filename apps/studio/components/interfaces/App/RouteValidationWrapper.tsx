@@ -27,9 +27,7 @@ export const RouteValidationWrapper = ({ children }: PropsWithChildren<{}>) => {
   )
 
   const DEFAULT_HOME = IS_PLATFORM
-    ? !!lastVisitedOrganization
-      ? `/org/${lastVisitedOrganization}`
-      : '/organizations'
+    ? '/org/org-1'  // Always land in default "Org 1" organization
     : '/project/default'
 
   /**

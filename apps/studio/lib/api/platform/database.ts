@@ -78,6 +78,9 @@ export type PlatformOrganization = {
   id: string
   name: string
   slug: string
+  created_at?: string
+  updated_at?: string
+  billing_email?: string
 }
 
 export type PlatformProject = {
@@ -94,6 +97,8 @@ export type PlatformProject = {
   postgres_meta_url: string
   supabase_url: string
   status: string
+  created_at?: string
+  updated_at?: string
 }
 
 export type PlatformCredentials = {

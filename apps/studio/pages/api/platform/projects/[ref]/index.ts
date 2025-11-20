@@ -26,12 +26,22 @@ const handleGet = async (req: NextApiRequest, res: NextApiResponse) => {
     return res.status(400).json({ error: { message: 'Project ref is required' } })
   }
 
+  // Special case: if ref is 'default' and no database is configured, return DEFAULT_PROJECT
+  if (ref === 'default' && !process.env.DATABASE_URL) {
+    return res.status(200).json(DEFAULT_PROJECT)
+  }
+
   const { data, error } = await queryPlatformDatabase<PlatformProject>({
     query: 'SELECT * FROM platform.projects WHERE ref = $1',
     parameters: [ref],
   })
 
   if (error) {
+    // If database query fails and we're asking for 'default', fall back to DEFAULT_PROJECT
+    if (ref === 'default') {
+      return res.status(200).json(DEFAULT_PROJECT)
+    }
+
     if (error instanceof PgMetaDatabaseError) {
       const { statusCode, message, formattedError } = error
       return res.status(statusCode).json({ error: { message, formattedError } })
@@ -41,6 +51,10 @@ const handleGet = async (req: NextApiRequest, res: NextApiResponse) => {
   }
 
   if (!data || data.length === 0) {
+    // If project not found in database and ref is 'default', return DEFAULT_PROJECT
+    if (ref === 'default') {
+      return res.status(200).json(DEFAULT_PROJECT)
+    }
     return res.status(404).json({ error: { message: `Project with ref '${ref}' not found` } })
   }
 
@@ -48,16 +62,16 @@ const handleGet = async (req: NextApiRequest, res: NextApiResponse) => {
 
   // Transform platform database format to ProjectDetailResponse format
   const projectResponse = {
-    ...DEFAULT_PROJECT,
     id: project.id,
     ref: project.ref,
     name: project.name,
     organization_id: project.organization_id,
-    db_host: project.database_host,
-    restUrl: project.supabase_url ? `${project.supabase_url}/rest/v1/` : DEFAULT_PROJECT.restUrl || '',
-    inserted_at: project.created_at || new Date().toISOString(),
     cloud_provider: 'railway',
+    status: project.status,
     region: process.env.RAILWAY_REGION || 'us-west',
+    inserted_at: project.created_at || new Date().toISOString(),
+    connectionString: '',
+    restUrl: project.supabase_url ? `${project.supabase_url}/rest/v1/` : '',
   }
 
   return res.status(200).json(projectResponse)

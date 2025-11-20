@@ -34,8 +34,7 @@ const nextConfig = {
   assetPrefix: getAssetPrefix(),
   output: 'standalone',
   experimental: {
-    webpackBuildWorker: false, // Disable parallel webpack workers to reduce memory usage
-    workerThreads: false, // Disable worker threads to further reduce memory pressure
+    webpackBuildWorker: true,
   },
   async rewrites() {
     return [
