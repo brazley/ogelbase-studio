@@ -7,6 +7,8 @@ on:
     paths:
       - 'apps/studio/**'
       - '.github/workflows/build-studio-docker.yml'
+    tags:
+      - 'v*'
   workflow_dispatch:
 
 env:
