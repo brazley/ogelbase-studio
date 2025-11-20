@@ -1,7 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next'
 
 import apiWrapper from 'lib/api/apiWrapper'
-import { queryPlatformDatabase, PlatformProject } from 'lib/api/platform/database'
+import { queryPlatformDatabase, PlatformOrganization } from 'lib/api/platform/database'
 import { PgMetaDatabaseError } from 'lib/api/self-hosted/types'
 
 export default (req: NextApiRequest, res: NextApiResponse) => apiWrapper(req, res, handler)
@@ -19,15 +19,15 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 }
 
 const handleGet = async (req: NextApiRequest, res: NextApiResponse) => {
-  const { ref } = req.query
+  const { slug } = req.query
 
-  if (!ref || typeof ref !== 'string') {
-    return res.status(400).json({ error: { message: 'Project ref is required' } })
+  if (!slug || typeof slug !== 'string') {
+    return res.status(400).json({ error: { message: 'Organization slug is required' } })
   }
 
-  const { data, error } = await queryPlatformDatabase<PlatformProject>({
-    query: 'SELECT * FROM platform.projects WHERE ref = $1',
-    parameters: [ref],
+  const { data, error } = await queryPlatformDatabase<PlatformOrganization>({
+    query: 'SELECT * FROM platform.organizations WHERE slug = $1',
+    parameters: [slug],
   })
 
   if (error) {
@@ -40,9 +40,9 @@ const handleGet = async (req: NextApiRequest, res: NextApiResponse) => {
   }
 
   if (!data || data.length === 0) {
-    return res.status(404).json({ error: { message: `Project with ref '${ref}' not found` } })
+    return res.status(404).json({ error: { message: `Organization with slug '${slug}' not found` } })
   }
 
-  const project = data[0]
-  return res.status(200).json(project)
+  const organization = data[0]
+  return res.status(200).json(organization)
 }
