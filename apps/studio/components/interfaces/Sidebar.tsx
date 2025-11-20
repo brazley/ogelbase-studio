@@ -387,6 +387,11 @@ const OrganizationLinks = () => {
 
   const activeRoute = router.pathname.split('/')[3]
 
+  // Don't render organization links if no organization is selected
+  if (!organizationSlug) {
+    return null
+  }
+
   const navMenuItems = [
     {
       label: 'Projects',
