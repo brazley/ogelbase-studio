@@ -1,6 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next'
 
 import apiWrapper from 'lib/api/apiWrapper'
+import { DEFAULT_PROJECT } from 'lib/constants/api'
 import { queryPlatformDatabase, PlatformProject } from 'lib/api/platform/database'
 import { PgMetaDatabaseError } from 'lib/api/self-hosted/types'
 
@@ -44,5 +45,20 @@ const handleGet = async (req: NextApiRequest, res: NextApiResponse) => {
   }
 
   const project = data[0]
-  return res.status(200).json(project)
+
+  // Transform platform database format to ProjectDetailResponse format
+  const projectResponse = {
+    ...DEFAULT_PROJECT,
+    id: project.id,
+    ref: project.ref,
+    name: project.name,
+    organization_id: project.organization_id,
+    db_host: project.database_host,
+    restUrl: project.supabase_url ? `${project.supabase_url}/rest/v1/` : DEFAULT_PROJECT.restUrl || '',
+    inserted_at: project.created_at || new Date().toISOString(),
+    cloud_provider: 'railway',
+    region: process.env.RAILWAY_REGION || 'us-west',
+  }
+
+  return res.status(200).json(projectResponse)
 }
