@@ -39,11 +39,12 @@ const AccountLayout = ({ children, title }: PropsWithChildren<AccountLayoutProps
 
   const currentPath = router.pathname
 
-  useEffect(() => {
-    if (!IS_PLATFORM) {
-      router.push('/project/default')
-    }
-  }, [router])
+  // Note: Removed redirect when !IS_PLATFORM to allow account pages in self-hosted mode
+  // useEffect(() => {
+  //   if (!IS_PLATFORM) {
+  //     router.push('/project/default')
+  //   }
+  // }, [router])
 
   return (
     <>
