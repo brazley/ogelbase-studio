@@ -33,8 +33,15 @@ const AuthErrorToaster = ({ children }: PropsWithChildren) => {
 }
 
 export const AuthProvider = ({ children }: PropsWithChildren) => {
+  // Check if mock auth is enabled for platform mode
+  const enableMockAuth = IS_PLATFORM && process.env.NEXT_PUBLIC_ENABLE_MOCK_AUTH === 'true'
+
+  // For platform mode with mock auth enabled, use alwaysLoggedIn to bypass real auth
+  // The AuthProviderInternal will use its DEFAULT_SESSION when alwaysLoggedIn is true
+  const shouldBypassAuth = !IS_PLATFORM || enableMockAuth
+
   return (
-    <AuthProviderInternal alwaysLoggedIn={!IS_PLATFORM}>
+    <AuthProviderInternal alwaysLoggedIn={shouldBypassAuth}>
       <AuthErrorToaster>{children}</AuthErrorToaster>
     </AuthProviderInternal>
   )

@@ -27,6 +27,15 @@ RUN npm install -g pnpm@10.16.1
 
 WORKDIR /app
 
+# Declare build arguments for NEXT_PUBLIC_* variables
+# These must be declared here to be available in all subsequent stages
+ARG NEXT_PUBLIC_IS_PLATFORM
+ARG NEXT_PUBLIC_SUPABASE_URL
+ARG NEXT_PUBLIC_GOTRUE_URL
+ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
+ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_SITE_URL
+
 # Prune unneeded dependencies with turbo (from apps/ for example)
 FROM base AS turbo
 COPY . .
@@ -51,6 +60,23 @@ CMD ["pnpm", "dev:studio"]
 # Compile Next.js
 FROM dev AS builder
 ENV NODE_OPTIONS="--max-old-space-size=8192"
+
+# Re-declare build arguments (they don't persist across stages)
+ARG NEXT_PUBLIC_IS_PLATFORM
+ARG NEXT_PUBLIC_SUPABASE_URL
+ARG NEXT_PUBLIC_GOTRUE_URL
+ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
+ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_SITE_URL
+
+# Pass build args as environment variables for Next.js build
+# These will be embedded into the JavaScript bundle at build time
+ENV NEXT_PUBLIC_IS_PLATFORM=$NEXT_PUBLIC_IS_PLATFORM
+ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
+ENV NEXT_PUBLIC_GOTRUE_URL=$NEXT_PUBLIC_GOTRUE_URL
+ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL
 
 RUN pnpm --filter studio exec next build
 

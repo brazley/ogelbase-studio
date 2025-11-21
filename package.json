@@ -5,6 +5,7 @@
   "author": "Supabase, Inc.",
   "license": "Apache-2.0",
   "private": true,
+  "packageManager": "pnpm@10.18.0",
   "scripts": {
     "preinstall": "npx only-allow pnpm",
     "build": "turbo run build",
