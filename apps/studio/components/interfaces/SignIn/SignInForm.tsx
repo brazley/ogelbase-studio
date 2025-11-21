@@ -46,6 +46,14 @@ export const SignInForm = () => {
   useEffect(() => {
     // Only call getReturnToPath after component mounts client-side
     setReturnTo(getReturnToPath())
+
+    // Log auth configuration for debugging
+    console.log('Auth configuration:', {
+      gotrueUrl: process.env.NEXT_PUBLIC_GOTRUE_URL,
+      supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
+      isPlatform: process.env.NEXT_PUBLIC_IS_PLATFORM,
+      authClientUrl: auth.url,
+    })
   }, [])
 
   const { mutate: sendEvent } = useSendEventMutation()

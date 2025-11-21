@@ -214,8 +214,39 @@ const fetchWithTimeout: typeof fetch = async (input, init) => {
   })
 }
 
+// Ensure GOTRUE_URL is properly configured
+const getGoTrueUrl = () => {
+  // Try NEXT_PUBLIC_GOTRUE_URL first
+  let url = process.env.NEXT_PUBLIC_GOTRUE_URL
+
+  // If not set, fallback to SUPABASE_URL + /auth/v1
+  if (!url) {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    if (supabaseUrl) {
+      url = `${supabaseUrl}/auth/v1`
+      console.warn(`NEXT_PUBLIC_GOTRUE_URL not set, using fallback: ${url}`)
+    }
+  }
+
+  // Final validation
+  if (!url) {
+    console.error('Neither NEXT_PUBLIC_GOTRUE_URL nor NEXT_PUBLIC_SUPABASE_URL is defined. Authentication will not work properly.')
+    // Return a dummy URL to prevent AuthClient from using relative paths
+    return 'http://localhost:54321/auth/v1'
+  }
+
+  // Ensure URL is absolute and properly formatted
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    console.error(`GoTrue URL must be absolute (http:// or https://), got: ${url}`)
+    return 'http://localhost:54321/auth/v1'
+  }
+
+  console.log(`GoTrue URL configured: ${url}`)
+  return url
+}
+
 export const gotrueClient = new AuthClient({
-  url: process.env.NEXT_PUBLIC_GOTRUE_URL,
+  url: getGoTrueUrl(),
   storageKey: STORAGE_KEY,
   detectSessionInUrl: shouldDetectSessionInUrl,
   debug: debug ? (persistedDebug ? logIndexedDB : true) : false,
