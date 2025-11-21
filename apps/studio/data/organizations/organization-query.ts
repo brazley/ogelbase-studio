@@ -26,7 +26,21 @@ export async function getOrganization({ slug }: OrganizationVariables, signal?: 
     params: { path: { slug } },
     signal,
   })
-  if (error) handleError(error)
+
+  if (error) {
+    // Enhanced error handling with specific codes
+    const errorWithCode = error as any
+    if (errorWithCode.code === 'DB_NOT_CONFIGURED') {
+      const enhancedError = new Error(
+        'Platform database is not configured. Please contact support.'
+      ) as any
+      enhancedError.code = 'DB_NOT_CONFIGURED'
+      enhancedError.originalError = error
+      throw enhancedError
+    }
+    handleError(error)
+  }
+
   return castOrganizationSlugResponseToOrganization(data)
 }
 

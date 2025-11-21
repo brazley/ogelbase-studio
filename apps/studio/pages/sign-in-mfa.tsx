@@ -85,7 +85,7 @@ const SignInMfaPage: NextPageWithLayout = () => {
         setLoading(false)
         router.push({ pathname: '/sign-in', query: router.query })
       })
-  }, [])
+  }, [addLoginEvent, queryClient, router, sendEvent, signInMethodRef])
 
   if (loading) {
     return (

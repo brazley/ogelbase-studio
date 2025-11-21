@@ -110,14 +110,14 @@ export const JsonEditor = ({
       const temp = prettifyJSON(jsonString)
       setJsonStr(temp)
     }
-  }, [visible])
+  }, [visible, jsonString])
 
   // reset the mutation when the panel closes. Fixes an issue where the value is truncated if you close and reopen the
   // panel again
   const onClose = useCallback(() => {
     reset()
     closePanel()
-  }, [reset])
+  }, [reset, closePanel])
 
   return (
     <SidePanel

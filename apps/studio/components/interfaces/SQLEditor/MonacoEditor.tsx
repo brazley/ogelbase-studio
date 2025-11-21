@@ -214,6 +214,7 @@ const MonacoEditor = ({
   // is usually used for sending the user to SQL editor from other pages with SQL.
   useEffect(() => {
     if (content && content.length > 0) handleEditorChange(content)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   return (

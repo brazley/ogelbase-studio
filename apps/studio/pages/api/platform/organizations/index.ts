@@ -1,12 +1,12 @@
 import { NextApiRequest, NextApiResponse } from 'next'
 
-import apiWrapper from 'lib/api/apiWrapper'
+import apiWrapper, { AuthenticatedRequest } from 'lib/api/apiWrapper'
 import { queryPlatformDatabase, PlatformOrganization } from 'lib/api/platform/database'
-import { PgMetaDatabaseError } from 'lib/api/self-hosted/types'
 
-export default (req: NextApiRequest, res: NextApiResponse) => apiWrapper(req, res, handler)
+export default (req: NextApiRequest, res: NextApiResponse) =>
+  apiWrapper(req, res, handler, { withAuth: true })
 
-async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: AuthenticatedRequest, res: NextApiResponse) {
   const { method } = req
 
   switch (method) {
@@ -18,41 +18,42 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   }
 }
 
-const handleGetAll = async (req: NextApiRequest, res: NextApiResponse) => {
-  // If no DATABASE_URL is configured, return default organization
+const handleGetAll = async (req: AuthenticatedRequest, res: NextApiResponse) => {
+  // Check if DATABASE_URL is configured
   if (!process.env.DATABASE_URL) {
-    const defaultOrganizations = [
-      {
-        id: 1,
-        name: 'Org 1',
-        slug: 'org-1',
-        billing_email: 'admin@org1.com',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      },
-    ]
-    return res.status(200).json(defaultOrganizations)
+    console.error('Platform database not configured: DATABASE_URL environment variable is missing')
+    return res.status(503).json({
+      error: 'Platform database not configured',
+      code: 'DB_NOT_CONFIGURED',
+      message: 'DATABASE_URL environment variable is missing. Please configure the platform database.',
+    })
   }
 
-  // Query all organizations from platform database
-  const { data, error } = await queryPlatformDatabase<PlatformOrganization>({
-    query: 'SELECT * FROM platform.organizations ORDER BY name',
-    parameters: [],
+  // Query only organizations the user is a member of
+  const { data, error } = await queryPlatformDatabase<
+    PlatformOrganization & { role: string; member_id: string }
+  >({
+    query: `
+      SELECT
+        o.*,
+        om.role,
+        om.id as member_id
+      FROM platform.organizations o
+      INNER JOIN platform.organization_members om ON om.organization_id = o.id
+      WHERE om.user_id = $1
+      ORDER BY o.name
+    `,
+    parameters: [req.user!.userId],
   })
 
   if (error) {
-    // If database query fails, fall back to default organization
-    const defaultOrganizations = [
-      {
-        id: 1,
-        name: 'Org 1',
-        slug: 'org-1',
-        billing_email: 'admin@org1.com',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      },
-    ]
-    return res.status(200).json(defaultOrganizations)
+    console.error('Failed to fetch organizations:', error)
+    return res.status(500).json({
+      error: 'Failed to fetch organizations',
+      code: 'DB_QUERY_FAILED',
+      message: 'Database query failed. Please check server logs for details.',
+      details: error instanceof Error ? error.message : String(error),
+    })
   }
 
   return res.status(200).json(data || [])

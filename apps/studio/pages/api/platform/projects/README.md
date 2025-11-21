@@ -15,21 +15,27 @@ This implementation provides a complete project creation system that handles:
 ## Files Created
 
 ### 1. API Endpoint
+
 **`/pages/api/platform/projects/create.ts`**
+
 - Main POST endpoint for creating projects
 - Handles validation, database insertion, and credential generation
 - Implements transaction safety (rollback on failure)
 - Returns complete project and credential data
 
 ### 2. JWT Utilities
+
 **`/lib/api/platform/jwt.ts`**
+
 - `generateJWTSecret()` - Generates cryptographically secure JWT secrets
 - `generateSupabaseJWT()` - Creates signed JWT tokens for Supabase
 - `generateProjectCredentials()` - One-stop function for all credentials
 - `verifySupabaseJWT()` - Validates JWT tokens
 
 ### 3. Project Utilities
+
 **`/lib/api/platform/project-utils.ts`**
+
 - `generateProjectRef()` - Creates unique project references
 - `generateSlug()` - Converts names to URL-friendly slugs
 - `isValidProjectRef()` - Validates project ref format
@@ -37,7 +43,9 @@ This implementation provides a complete project creation system that handles:
 - `validateURL()` - Validates URL formats
 
 ### 4. Documentation
+
 **`/pages/api/platform/projects/CREATE_PROJECT_API.md`**
+
 - Complete API documentation
 - Request/response examples
 - Error codes and messages
@@ -49,6 +57,7 @@ This implementation provides a complete project creation system that handles:
 ### 1. Prerequisites
 
 Ensure you have:
+
 - Platform database set up with migrations applied
 - At least one organization in `platform.organizations`
 - jsonwebtoken package installed (`pnpm add jsonwebtoken @types/jsonwebtoken`)
@@ -113,12 +122,14 @@ curl -X POST http://localhost:8082/api/platform/projects/create \
 Projects are stored across two tables:
 
 **platform.projects**
+
 - Project metadata
 - Database connection details
 - Service URLs
 - Status information
 
 **platform.credentials**
+
 - JWT secret
 - Anon key
 - Service role key
@@ -127,17 +138,20 @@ Projects are stored across two tables:
 ### Security Features
 
 1. **Cryptographically Secure Secrets**
+
    - Uses Node.js `crypto` module
    - 64-byte random JWT secrets
    - Base64-encoded for storage
 
 2. **Input Validation**
+
    - Required field checking
    - Format validation (refs, URLs, ports)
    - Organization existence verification
    - Project ref uniqueness check
 
 3. **Transaction Safety**
+
    - Automatic rollback on credential creation failure
    - Prevents orphaned projects
 
@@ -208,20 +222,17 @@ const axios = require('axios')
 
 async function main() {
   try {
-    const { data } = await axios.post(
-      'http://localhost:8082/api/platform/projects/create',
-      {
-        name: 'Automated Project',
-        organization_id: process.env.ORG_ID,
-        database_host: process.env.DB_HOST,
-        database_port: parseInt(process.env.DB_PORT || '5432'),
-        database_name: process.env.DB_NAME,
-        database_user: process.env.DB_USER,
-        database_password: process.env.DB_PASSWORD,
-        postgres_meta_url: process.env.PGMETA_URL,
-        supabase_url: process.env.SUPABASE_URL,
-      }
-    )
+    const { data } = await axios.post('http://localhost:8082/api/platform/projects/create', {
+      name: 'Automated Project',
+      organization_id: process.env.ORG_ID,
+      database_host: process.env.DB_HOST,
+      database_port: parseInt(process.env.DB_PORT || '5432'),
+      database_name: process.env.DB_NAME,
+      database_user: process.env.DB_USER,
+      database_password: process.env.DB_PASSWORD,
+      postgres_meta_url: process.env.PGMETA_URL,
+      supabase_url: process.env.SUPABASE_URL,
+    })
 
     console.log('Project ID:', data.project.id)
     console.log('Project Ref:', data.project.ref)
@@ -257,10 +268,7 @@ test('generates valid JWT credentials', () => {
   const anonPayload = verifySupabaseJWT(creds.anon_key, creds.jwt_secret)
   expect(anonPayload?.role).toBe('anon')
 
-  const servicePayload = verifySupabaseJWT(
-    creds.service_role_key,
-    creds.jwt_secret
-  )
+  const servicePayload = verifySupabaseJWT(creds.service_role_key, creds.jwt_secret)
   expect(servicePayload?.role).toBe('service_role')
 })
 
@@ -310,6 +318,7 @@ SELECT id, name, slug FROM platform.organizations;
 ### Issue: "Project with ref 'X' already exists"
 
 **Solution**: Either:
+
 1. Don't provide a custom `ref` (let it auto-generate)
 2. Choose a different unique ref
 3. Delete the existing project if it's no longer needed
@@ -350,11 +359,13 @@ WHERE project_id = (
 To add custom fields to projects:
 
 1. Update database schema:
+
 ```sql
 ALTER TABLE platform.projects ADD COLUMN custom_field TEXT;
 ```
 
 2. Update TypeScript types in `/lib/api/platform/database.ts`:
+
 ```typescript
 export type PlatformProject = {
   // ... existing fields
@@ -398,6 +409,7 @@ await notifyProjectCreated({
 ### Database Queries
 
 The endpoint makes several database queries:
+
 1. Check organization exists (1 query)
 2. Check ref uniqueness (1 query)
 3. Insert project (1 query)
@@ -405,6 +417,7 @@ The endpoint makes several database queries:
 5. Optional rollback (1 query if needed)
 
 **Optimization opportunities**:
+
 - Combine organization check and ref uniqueness check
 - Use database transactions for atomicity
 - Add database indexes (already present in migration)

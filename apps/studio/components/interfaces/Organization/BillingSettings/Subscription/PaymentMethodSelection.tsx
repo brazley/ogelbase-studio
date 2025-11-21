@@ -101,7 +101,12 @@ const PaymentMethodSelection = forwardRef(function PaymentMethodSelection(
     if (paymentMethods?.data && paymentMethods.data.length === 0 && setupNewPaymentMethod == null) {
       setSetupNewPaymentMethod(true)
     }
-  }, [paymentMethods])
+  }, [paymentMethods, setupNewPaymentMethod])
+
+  const resetCaptcha = useCallback(() => {
+    setCaptchaToken(null)
+    captchaRef?.resetCaptcha()
+  }, [captchaRef])
 
   useEffect(() => {
     const loadSetupIntent = async (hcaptchaToken: string | undefined) => {
@@ -132,12 +137,7 @@ const PaymentMethodSelection = forwardRef(function PaymentMethodSelection(
     }
 
     loadPaymentForm()
-  }, [captchaRef, setupNewPaymentMethod])
-
-  const resetCaptcha = () => {
-    setCaptchaToken(null)
-    captchaRef?.resetCaptcha()
-  }
+  }, [captchaRef, setupNewPaymentMethod, captchaToken, resetCaptcha, selectedOrganization?.slug, initSetupIntent])
 
   const stripeOptionsPaymentMethod: StripeElementsOptions = useMemo(
     () =>

@@ -86,7 +86,7 @@ export const CreateClerkAuthIntegrationDialog = ({
         form.setFocus('domain')
       }, 25)
     }
-  }, [visible])
+  }, [visible, form])
 
   const onSubmit: SubmitHandler<z.infer<typeof FormSchema>> = async (values) => {
     createAuthIntegration({

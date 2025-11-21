@@ -26,8 +26,14 @@ export const RouteValidationWrapper = ({ children }: PropsWithChildren<{}>) => {
     ''
   )
 
+  const { data: organizations, isSuccess: orgsInitialized } = useOrganizationsQuery({
+    enabled: isLoggedIn,
+  })
+
+  // Phase 3: Dynamic DEFAULT_HOME based on actual organizations
+  const firstOrg = organizations?.[0]
   const DEFAULT_HOME = IS_PLATFORM
-    ? '/org/org-1'  // Always land in default "Org 1" organization
+    ? (firstOrg ? `/org/${firstOrg.slug}` : '/organizations')
     : '/project/default'
 
   /**
@@ -52,10 +58,6 @@ export const RouteValidationWrapper = ({ children }: PropsWithChildren<{}>) => {
   }
 
   const { isError: isErrorProject } = useProjectDetailQuery({ ref })
-
-  const { data: organizations, isSuccess: orgsInitialized } = useOrganizationsQuery({
-    enabled: isLoggedIn,
-  })
   const organizationsRef = useLatest(organizations)
 
   useEffect(() => {
@@ -112,6 +114,37 @@ export const RouteValidationWrapper = ({ children }: PropsWithChildren<{}>) => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [organization])
+
+  // Phase 4: Auto-select first organization when user lands on root
+  useEffect(() => {
+    // Only run for platform mode
+    if (!IS_PLATFORM) return
+
+    // Wait for user to be logged in and orgs to be loaded
+    if (!isLoggedIn || !orgsInitialized) return
+
+    // Don't redirect if already on an org page
+    if (slug) return
+
+    // Don't redirect if no orgs available
+    if (!organizations || organizations.length === 0) return
+
+    // Only redirect from root path to avoid navigation loops
+    if (router.pathname !== '/') return
+
+    // Check last visited org from localStorage, prefer it if available
+    const targetOrg = lastVisitedOrganization
+      ? organizations.find(o => o.slug === lastVisitedOrganization)
+      : null
+
+    // Fall back to first org if last visited not found
+    const orgToUse = targetOrg || organizations[0]
+
+    if (orgToUse) {
+      console.log(`[RouteValidation] Auto-selecting organization: ${orgToUse.slug}`)
+      router.push(`/org/${orgToUse.slug}`)
+    }
+  }, [isLoggedIn, orgsInitialized, slug, organizations, lastVisitedOrganization, router])
 
   return <>{children}</>
 }

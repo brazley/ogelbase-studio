@@ -75,7 +75,10 @@ const handlePost = async (req: NextApiRequest, res: NextApiResponse) => {
     return res.status(400).json({ error: { message: 'enabled must be a boolean' } })
   }
 
-  if (limit_gb !== undefined && (typeof limit_gb !== 'number' || limit_gb < 8 || limit_gb > 16384)) {
+  if (
+    limit_gb !== undefined &&
+    (typeof limit_gb !== 'number' || limit_gb < 8 || limit_gb > 16384)
+  ) {
     return res.status(400).json({ error: { message: 'limit_gb must be between 8 and 16384' } })
   }
 
@@ -113,5 +116,7 @@ const handlePost = async (req: NextApiRequest, res: NextApiResponse) => {
     return res.status(500).json({ error: { message: 'Failed to update auto-scale config' } })
   }
 
-  return res.status(200).json(data?.[0] || { enabled, limit_gb: limit_gb || DEFAULT_AUTO_SCALE_CONFIG.limit_gb })
+  return res
+    .status(200)
+    .json(data?.[0] || { enabled, limit_gb: limit_gb || DEFAULT_AUTO_SCALE_CONFIG.limit_gb })
 }

@@ -216,7 +216,7 @@ export const TableEditorTableStateContextProvider = ({
     if (state._originalTableRef !== table) {
       state.updateTable(table)
     }
-  }, [table])
+  }, [table, state])
 
   useEffect(() => {
     if (state.editable !== props.editable) {

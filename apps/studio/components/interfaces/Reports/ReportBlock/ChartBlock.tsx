@@ -163,7 +163,7 @@ export const ChartBlock = ({
       : typeof value === 'number'
         ? value.toLocaleString()
         : value
-  }, [chartData?.data, chartData?.format, attribute])
+  }, [chartData?.data, attribute, isPercentage])
 
   useEffect(() => {
     if (defaultChartStyle) setChartStyle(defaultChartStyle)

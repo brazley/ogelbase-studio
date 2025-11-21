@@ -97,7 +97,7 @@ const BillingEmail = () => {
         additionalBillingEmails: billingCustomer.additional_emails ?? [],
       })
     }
-  }, [billingCustomer])
+  }, [billingCustomer, billing_email, form])
 
   return (
     <ScaffoldSection>

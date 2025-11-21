@@ -63,7 +63,6 @@ export const DiskUsage = ({
           })
           .filter((it) => it.ref === projectRef || !projectRef)
       : []
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSuccess, projects, projectRef])
 
   const hasProjectsExceedingDiskSize = useMemo(() => {

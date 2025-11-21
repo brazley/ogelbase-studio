@@ -300,11 +300,13 @@ ls -lh platform_backup_*.sql
 ### 17. Monitoring Setup
 
 Railway:
+
 - [ ] Database monitoring enabled
 - [ ] Email alerts configured
 - [ ] Disk space alerts set
 
 Vercel:
+
 - [ ] Function error alerts enabled
 - [ ] Log aggregation configured
 
@@ -337,17 +339,20 @@ Common issues:
 If deployment fails:
 
 1. **Preserve database**:
+
    ```bash
    pg_dump "$DATABASE_URL" --schema=platform -f rollback_backup.sql
    ```
 
 2. **Remove environment variables**:
+
    ```bash
    vercel env rm DATABASE_URL production
    vercel env rm PG_META_CRYPTO_KEY production
    ```
 
 3. **Revert deployment**:
+
    ```bash
    # Vercel automatically keeps previous deployments
    # Go to dashboard → Deployments → Promote previous version
@@ -384,16 +389,19 @@ After successful deployment:
 
 ## Sign-off
 
-Deployment completed by: ___________________
+Deployment completed by: **\*\*\*\***\_\_\_**\*\*\*\***
 
-Date: ___________________
+Date: **\*\*\*\***\_\_\_**\*\*\*\***
 
-Verified by: ___________________
+Verified by: **\*\*\*\***\_\_\_**\*\*\*\***
 
 Notes:
-_________________________________________________________________
-_________________________________________________________________
-_________________________________________________________________
+
+---
+
+---
+
+---
 
 ---
 

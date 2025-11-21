@@ -39,7 +39,10 @@ declare namespace Supabase {
     run(
       prompt:
         | string
-        | Omit<import('npm:openai@^4.52.5').OpenAI.Chat.ChatCompletionCreateParams, 'model' | 'stream'>,
+        | Omit<
+            import('npm:openai@^4.52.5').OpenAI.Chat.ChatCompletionCreateParams,
+            'model' | 'stream'
+          >,
       modelOptions?: ModelOptions
     ): unknown
   }

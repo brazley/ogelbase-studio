@@ -35,11 +35,12 @@ const FormField = ({
   )
 
   useEffect(() => {
-    if (properties.show && properties.show.key && !formValues[properties.show.key]) {
+    const shouldReset = properties.show?.key && !formValues[properties.show.key]
+    if (shouldReset) {
       setFieldValue(name, '')
       setDateAsText('')
     }
-  }, [properties.show && properties.show.key && !formValues[properties.show.key]])
+  }, [properties.show, formValues, name, setFieldValue])
 
   if (properties.show) {
     if (properties.show.matches) {

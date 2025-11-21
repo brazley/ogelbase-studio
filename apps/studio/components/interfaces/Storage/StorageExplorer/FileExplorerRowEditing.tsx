@@ -1,5 +1,5 @@
 import { has } from 'lodash'
-import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 
 import { useStorageExplorerStateSnapshot } from 'state/storage-explorer'
 import { STORAGE_ROW_STATUS, STORAGE_ROW_TYPES, STORAGE_VIEWS } from '../Storage.constants'
@@ -25,7 +25,7 @@ export const FileExplorerRowEditing = ({
   const inputRef = useRef<any>(null)
   const [itemName, setItemName] = useState(item.name)
 
-  const onSaveItemName = async (name: string, event?: any) => {
+  const onSaveItemName = useCallback(async (name: string, event?: any) => {
     if (event) {
       event.preventDefault()
       event.stopPropagation()
@@ -64,7 +64,7 @@ export const FileExplorerRowEditing = ({
         },
       })
     }
-  }
+  }, [item, columnIndex, renameFile, renameFolder, addNewFolder, updateRowStatus])
 
   useEffect(() => {
     // select just the name of the file without the extension
@@ -85,7 +85,7 @@ export const FileExplorerRowEditing = ({
 
     window.addEventListener('keydown', handleEsc)
     return () => window.removeEventListener('keydown', handleEsc)
-  }, [])
+  }, [addNewFolder, columnIndex, item?.id, item.name, onSaveItemName])
 
   return (
     <div

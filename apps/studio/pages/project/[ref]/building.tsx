@@ -30,7 +30,7 @@ const RedirectToDashboard = () => {
     // Cos we already pulling new connectionString after project building/restoring
     // just use normal router.push is enough
     router.push(`/project/${ref}`)
-  }, [])
+  }, [ref, router])
 
   return null
 }

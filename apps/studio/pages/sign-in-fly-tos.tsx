@@ -50,7 +50,7 @@ const SignInFlyTos = () => {
       : fly_organization_id
         ? getOrgByFlyOrgId({ flyOrganizationId: fly_organization_id as string })
         : setLoading(false)
-  }, [isReady])
+  }, [isReady, fly_extension_id, fly_organization_id, getOrgByFlyOrgId, getProjectByFlyExtensionId, isLoggedIn])
 
   const [isRedirecting, setIsRedirecting] = useState(false)
 

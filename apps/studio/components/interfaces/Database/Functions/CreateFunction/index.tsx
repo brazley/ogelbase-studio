@@ -152,7 +152,7 @@ export const CreateFunction = ({
         config_params: convertConfigParams(func?.config_params).value,
       })
     }
-  }, [visible, func])
+  }, [visible, func, form])
 
   const { data: protectedSchemas } = useProtectedSchemas()
 

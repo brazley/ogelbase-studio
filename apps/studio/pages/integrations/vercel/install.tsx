@@ -56,7 +56,7 @@ const VercelIntegration: NextPageWithLayout = () => {
         router.query.organizationSlug = firstOrg.slug
       }
     }
-  }, [organizationsData, integrationData])
+  }, [organizationsData, integrationData, router.query, selectedOrg])
 
   /**
    * Organizations with extra `installationInstalled` attribute

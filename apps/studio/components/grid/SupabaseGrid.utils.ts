@@ -244,7 +244,7 @@ export function useSyncTableEditorStateFromLocalStorageWithUrl({
         filters: latestUrlParams.filter,
       })
     }
-  }, [urlParams, table, projectRef])
+  }, [urlParams, table, projectRef, updateUrlParams])
 }
 
 export const handleCopyCell = (

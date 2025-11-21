@@ -136,7 +136,7 @@ export const OAuthServerSettingsForm = () => {
         availableScopes: ['openid', 'email', 'profile'], // Keep default scopes
       })
     }
-  }, [isSuccess])
+  }, [isSuccess, authConfig, form])
 
   const onSubmit = async (values: OAuthServerSettings) => {
     if (!projectRef) return console.error('Project ref is required')

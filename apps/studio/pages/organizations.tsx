@@ -47,7 +47,7 @@ const OrganizationsPage: NextPageWithLayout = () => {
     if (isSuccess && organizations.length <= 0 && !orgNotFound) {
       router.push('/new')
     }
-  }, [isSuccess, organizations])
+  }, [isSuccess, organizations, orgNotFound, router])
 
   return (
     <ScaffoldContainer>

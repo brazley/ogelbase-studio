@@ -86,7 +86,7 @@ const RowEditor = ({
       const rowFields = generateRowFields(row, selectedTable, foreignKeys)
       setRowFields(rowFields)
     }
-  }, [visible])
+  }, [visible, row, selectedTable, foreignKeys])
 
   const onUpdateField = (changes: Dictionary<any>) => {
     const updatedProperties = Object.keys(changes)

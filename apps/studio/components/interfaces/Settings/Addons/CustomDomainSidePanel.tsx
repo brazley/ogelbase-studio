@@ -83,7 +83,7 @@ const CustomDomainSidePanel = () => {
         setSelectedOption('cd_none')
       }
     }
-  }, [visible, isLoading])
+  }, [visible, isLoading, subscriptionCDOption])
 
   const onConfirm = async () => {
     if (!projectRef) return console.error('Project ref is required')

@@ -1,11 +1,13 @@
 import { NextApiRequest, NextApiResponse } from 'next'
 
-import apiWrapper from 'lib/api/apiWrapper'
+import apiWrapper, { AuthenticatedRequest } from 'lib/api/apiWrapper'
 import { queryPlatformDatabase } from 'lib/api/platform/database'
+import { verifyOrgAccess, requireRole } from 'lib/api/platform/org-access-control'
 
-export default (req: NextApiRequest, res: NextApiResponse) => apiWrapper(req, res, handler)
+export default (req: NextApiRequest, res: NextApiResponse) =>
+  apiWrapper(req, res, handler, { withAuth: true })
 
-async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: AuthenticatedRequest, res: NextApiResponse) {
   const { method } = req
 
   switch (method) {
@@ -45,12 +47,22 @@ const DEFAULT_PAYMENT_METHOD: PaymentMethod = {
   created_at: new Date().toISOString(),
 }
 
-// GET - List payment methods
-const handleGet = async (req: NextApiRequest, res: NextApiResponse) => {
+// GET - List payment methods (admin or owner only)
+const handleGet = async (req: AuthenticatedRequest, res: NextApiResponse) => {
   const { slug } = req.query
 
   if (!slug || typeof slug !== 'string') {
     return res.status(400).json({ error: { message: 'Organization slug is required' } })
+  }
+
+  // Verify user has access and admin role
+  const membership = await verifyOrgAccess(slug, req.user!, res)
+  if (!membership) {
+    return // Response already sent by verifyOrgAccess
+  }
+
+  if (!requireRole(membership, 'admin', res)) {
+    return // Response already sent by requireRole
   }
 
   // If no DATABASE_URL is configured, return empty array (or default payment method for testing)
@@ -77,13 +89,23 @@ const handleGet = async (req: NextApiRequest, res: NextApiResponse) => {
   return res.status(200).json(data || [])
 }
 
-// POST /setup-intent - Create Stripe setup intent for adding payment method
-const handlePost = async (req: NextApiRequest, res: NextApiResponse) => {
+// POST /setup-intent - Create Stripe setup intent for adding payment method (owner only)
+const handlePost = async (req: AuthenticatedRequest, res: NextApiResponse) => {
   const { slug } = req.query
   const { action } = req.body
 
   if (!slug || typeof slug !== 'string') {
     return res.status(400).json({ error: { message: 'Organization slug is required' } })
+  }
+
+  // Verify user has access and owner role
+  const membership = await verifyOrgAccess(slug, req.user!, res)
+  if (!membership) {
+    return // Response already sent by verifyOrgAccess
+  }
+
+  if (!requireRole(membership, 'owner', res)) {
+    return // Response already sent by requireRole
   }
 
   // Handle setup intent creation
@@ -141,13 +163,23 @@ const handlePost = async (req: NextApiRequest, res: NextApiResponse) => {
   return res.status(200).json(data?.[0] || {})
 }
 
-// PUT /default - Set default payment method
-const handlePut = async (req: NextApiRequest, res: NextApiResponse) => {
+// PUT /default - Set default payment method (owner only)
+const handlePut = async (req: AuthenticatedRequest, res: NextApiResponse) => {
   const { slug } = req.query
   const { payment_method_id } = req.body
 
   if (!slug || typeof slug !== 'string') {
     return res.status(400).json({ error: { message: 'Organization slug is required' } })
+  }
+
+  // Verify user has access and owner role
+  const membership = await verifyOrgAccess(slug, req.user!, res)
+  if (!membership) {
+    return // Response already sent by verifyOrgAccess
+  }
+
+  if (!requireRole(membership, 'owner', res)) {
+    return // Response already sent by requireRole
   }
 
   if (!payment_method_id) {
@@ -179,13 +211,23 @@ const handlePut = async (req: NextApiRequest, res: NextApiResponse) => {
   return res.status(200).json({ success: true })
 }
 
-// DELETE - Remove payment method
-const handleDelete = async (req: NextApiRequest, res: NextApiResponse) => {
+// DELETE - Remove payment method (owner only)
+const handleDelete = async (req: AuthenticatedRequest, res: NextApiResponse) => {
   const { slug } = req.query
   const { payment_method_id } = req.body
 
   if (!slug || typeof slug !== 'string') {
     return res.status(400).json({ error: { message: 'Organization slug is required' } })
+  }
+
+  // Verify user has access and owner role
+  const membership = await verifyOrgAccess(slug, req.user!, res)
+  if (!membership) {
+    return // Response already sent by verifyOrgAccess
+  }
+
+  if (!requireRole(membership, 'owner', res)) {
+    return // Response already sent by requireRole
   }
 
   if (!payment_method_id) {

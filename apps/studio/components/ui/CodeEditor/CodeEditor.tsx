@@ -225,8 +225,7 @@ const CodeEditor = ({
       })
       return () => formatProvider.dispose()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [monaco, project, formatDocument.enabled])
+  }, [monaco, project, formatDocument.enabled, formatDocument.callback])
 
   return (
     <>

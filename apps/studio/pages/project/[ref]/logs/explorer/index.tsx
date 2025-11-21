@@ -301,7 +301,7 @@ export const LogsExplorerPage: NextPageWithLayout = () => {
         setShowUpgradePrompt(!showUpgradePrompt)
       }
     }
-  }, [timestampStart, entitledToAuditLogDays])
+  }, [timestampStart, entitledToAuditLogDays, setShowUpgradePrompt, showUpgradePrompt])
 
   return (
     <div className="w-full h-full mx-auto">

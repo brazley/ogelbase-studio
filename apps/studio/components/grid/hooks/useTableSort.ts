@@ -34,7 +34,7 @@ export function useTableSort() {
 
       setParams((prevParams) => ({ ...prevParams, sort: newUrlSorts }))
     },
-    [snap, setParams]
+    [tableName, setParams]
   )
 
   /**

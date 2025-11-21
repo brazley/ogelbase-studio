@@ -33,7 +33,7 @@ const SavingIndicator = ({ id }: SavingIndicatorProps) => {
     return () => {
       cancel = true
     }
-  }, [savingState])
+  }, [savingState, previousState])
 
   const retry = () => snapV2.addNeedsSaving(id)
 

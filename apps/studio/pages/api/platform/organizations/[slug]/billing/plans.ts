@@ -1,11 +1,13 @@
 import { NextApiRequest, NextApiResponse } from 'next'
 
-import apiWrapper from 'lib/api/apiWrapper'
+import apiWrapper, { AuthenticatedRequest } from 'lib/api/apiWrapper'
 import { queryPlatformDatabase } from 'lib/api/platform/database'
+import { verifyOrgAccess } from 'lib/api/platform/org-access-control'
 
-export default (req: NextApiRequest, res: NextApiResponse) => apiWrapper(req, res, handler)
+export default (req: NextApiRequest, res: NextApiResponse) =>
+  apiWrapper(req, res, handler, { withAuth: true })
 
-async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: AuthenticatedRequest, res: NextApiResponse) {
   const { method } = req
 
   switch (method) {
@@ -57,8 +59,8 @@ const DEFAULT_PLANS: BillingPlan[] = [
       'Daily backups (7 days retention)',
       'Custom domain',
     ],
-    max_projects: null,
-    max_members: null,
+    max_projects: undefined,
+    max_members: undefined,
   },
   {
     id: 'team',
@@ -74,8 +76,8 @@ const DEFAULT_PLANS: BillingPlan[] = [
       'Project transfers',
       'Point-in-time recovery',
     ],
-    max_projects: null,
-    max_members: null,
+    max_projects: undefined,
+    max_members: undefined,
   },
   {
     id: 'enterprise',
@@ -93,16 +95,22 @@ const DEFAULT_PLANS: BillingPlan[] = [
       'Security questionnaire & review',
       'Custom security policies',
     ],
-    max_projects: null,
-    max_members: null,
+    max_projects: undefined,
+    max_members: undefined,
   },
 ]
 
-const handleGet = async (req: NextApiRequest, res: NextApiResponse) => {
+const handleGet = async (req: AuthenticatedRequest, res: NextApiResponse) => {
   const { slug } = req.query
 
   if (!slug || typeof slug !== 'string') {
     return res.status(400).json({ error: { message: 'Organization slug is required' } })
+  }
+
+  // Verify user has access to this organization
+  const membership = await verifyOrgAccess(slug, req.user!, res)
+  if (!membership) {
+    return // Response already sent by verifyOrgAccess
   }
 
   // If no DATABASE_URL is configured, return default plans

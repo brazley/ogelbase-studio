@@ -47,6 +47,11 @@ const AddNewPaymentMethodModal = ({
     setCaptchaRef(node)
   }, [])
 
+  const resetCaptcha = useCallback(() => {
+    setCaptchaToken(null)
+    captchaRef?.resetCaptcha()
+  }, [captchaRef])
+
   useEffect(() => {
     const initSetupIntent = async (hcaptchaToken: string | undefined) => {
       const slug = selectedOrganization?.slug
@@ -76,12 +81,7 @@ const AddNewPaymentMethodModal = ({
     }
 
     loadPaymentForm()
-  }, [visible, captchaRef])
-
-  const resetCaptcha = () => {
-    setCaptchaToken(null)
-    captchaRef?.resetCaptcha()
-  }
+  }, [visible, captchaRef, captchaToken, resetCaptcha, selectedOrganization?.slug, setupIntent])
 
   const options = {
     clientSecret: intent ? intent.client_secret : '',

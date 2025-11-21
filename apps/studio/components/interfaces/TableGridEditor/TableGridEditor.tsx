@@ -67,7 +67,7 @@ export const TableGridEditor = ({
         `/project/${projectRef}/editor/${table.id}${!!selectedSchema ? `?schema=${selectedSchema}` : ''}`
       )
     },
-    [projectRef, router]
+    [projectRef, router, selectedSchema]
   )
 
   const onTableDeleted = useCallback(async () => {
@@ -82,7 +82,7 @@ export const TableGridEditor = ({
         onClearDashboardHistory: () => setLastVisitedTable(undefined),
       })
     }
-  }, [router, selectedTable, tabs])
+  }, [router, selectedTable, tabs, setLastVisitedTable])
 
   const { isSchemaLocked } = useIsProtectedSchema({ schema: selectedTable?.schema ?? '' })
 

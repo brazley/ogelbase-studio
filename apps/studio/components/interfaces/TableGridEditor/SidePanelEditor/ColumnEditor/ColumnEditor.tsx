@@ -2,7 +2,7 @@ import type { PostgresColumn, PostgresTable } from '@supabase/postgres-meta'
 import { isEmpty, noop } from 'lodash'
 import { ExternalLink, Plus } from 'lucide-react'
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import { useParams } from 'common'
 import { FormSection, FormSectionContent, FormSectionLabel } from 'components/ui/Forms/FormSection'
@@ -105,10 +105,14 @@ const ColumnEditor = ({
   })
 
   const isNewRecord = column === undefined
-  const foreignKeyMeta = data || []
-  const foreignKeys = foreignKeyMeta.filter((relation) => {
-    return relation.source_id === column?.table_id && relation.source_columns.includes(column.name)
-  })
+  const foreignKeyMeta = useMemo(() => data || [], [data])
+  const foreignKeys = useMemo(
+    () =>
+      foreignKeyMeta.filter((relation) => {
+        return relation.source_id === column?.table_id && relation.source_columns.includes(column.name)
+      }),
+    [foreignKeyMeta, column?.table_id, column?.name]
+  )
   const lockColumnType =
     fkRelations.find(
       (fk) =>
@@ -124,7 +128,7 @@ const ColumnEditor = ({
       setColumnFields(columnFields)
       setFkRelations(formatForeignKeys(foreignKeys))
     }
-  }, [visible])
+  }, [visible, isNewRecord, selectedTable, column, foreignKeyMeta, foreignKeys])
 
   if (!columnFields) return null
 

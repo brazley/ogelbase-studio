@@ -15,28 +15,7 @@ import { gotrueClient, type User } from './gotrue'
 
 export type { User }
 
-const DEFAULT_SESSION: any = {
-  access_token: 'mock-access-token',
-  expires_at: Math.floor(Date.now() / 1000) + 3600,
-  expires_in: 3600,
-  refresh_token: 'mock-refresh-token',
-  token_type: 'bearer',
-  user: {
-    aud: 'authenticated',
-    app_metadata: {},
-    confirmed_at: new Date().toISOString(),
-    created_at: new Date().toISOString(),
-    email: 'admin@ogelbase.com',
-    email_confirmed_at: new Date().toISOString(),
-    id: 'mock-user-id',
-    identities: [],
-    last_signed_in_at: new Date().toISOString(),
-    phone: '',
-    role: 'authenticated',
-    updated_at: new Date().toISOString(),
-    user_metadata: {},
-  },
-} as unknown as Session
+// Mock session removed - using real authentication only
 
 /* Auth Context */
 
@@ -61,14 +40,9 @@ export const AuthContext = createContext<AuthContext>({
   refreshSession: () => Promise.resolve(null),
 })
 
-export type AuthProviderProps = {
-  alwaysLoggedIn?: boolean
-}
+export type AuthProviderProps = Record<string, never>
 
-export const AuthProvider = ({
-  alwaysLoggedIn,
-  children,
-}: PropsWithChildren<AuthProviderProps>) => {
+export const AuthProvider = ({ children }: PropsWithChildren<AuthProviderProps>) => {
   const [state, setState] = useState<AuthState>({ session: null, error: null, isLoading: true })
 
   useEffect(() => {
@@ -111,11 +85,7 @@ export const AuthProvider = ({
   }, [])
 
   const value = useMemo(() => {
-    if (alwaysLoggedIn) {
-      return { session: DEFAULT_SESSION, error: null, isLoading: false, refreshSession } as const
-    } else {
-      return { ...state, refreshSession } as const
-    }
+    return { ...state, refreshSession } as const
   }, [state, refreshSession])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

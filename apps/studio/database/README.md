@@ -32,44 +32,48 @@ The platform database is a **separate PostgreSQL database** (not your Supabase a
 ## Database Schema
 
 ### platform.organizations
+
 Stores organization information.
 
-| Column        | Type         | Description                    |
-|---------------|--------------|--------------------------------|
-| id            | UUID         | Primary key                    |
-| name          | TEXT         | Organization display name      |
-| slug          | TEXT         | URL-friendly identifier        |
-| billing_email | TEXT         | Billing contact email          |
-| created_at    | TIMESTAMPTZ  | Creation timestamp             |
-| updated_at    | TIMESTAMPTZ  | Last update timestamp          |
+| Column        | Type        | Description               |
+| ------------- | ----------- | ------------------------- |
+| id            | UUID        | Primary key               |
+| name          | TEXT        | Organization display name |
+| slug          | TEXT        | URL-friendly identifier   |
+| billing_email | TEXT        | Billing contact email     |
+| created_at    | TIMESTAMPTZ | Creation timestamp        |
+| updated_at    | TIMESTAMPTZ | Last update timestamp     |
 
 **Constraints:**
+
 - `slug` must be unique
 - `slug` format: lowercase alphanumeric with hyphens (e.g., "my-org")
 - `name` cannot be empty
 
 ### platform.projects
+
 Stores project configuration and database connection details.
 
-| Column             | Type         | Description                          |
-|--------------------|--------------|--------------------------------------|
-| id                 | UUID         | Primary key                          |
-| organization_id    | UUID         | Foreign key to organizations         |
-| name               | TEXT         | Project display name                 |
-| slug               | TEXT         | URL-friendly identifier              |
-| ref                | TEXT         | Unique project reference (e.g., "default") |
-| database_host      | TEXT         | PostgreSQL host                      |
-| database_port      | INTEGER      | PostgreSQL port (default: 5432)      |
-| database_name      | TEXT         | Database name                        |
-| database_user      | TEXT         | Database user                        |
-| database_password  | TEXT         | Database password                    |
-| postgres_meta_url  | TEXT         | Postgres Meta service URL            |
-| supabase_url       | TEXT         | Kong/API gateway URL                 |
-| status             | TEXT         | Project status (see below)           |
-| created_at         | TIMESTAMPTZ  | Creation timestamp                   |
-| updated_at         | TIMESTAMPTZ  | Last update timestamp                |
+| Column            | Type        | Description                                |
+| ----------------- | ----------- | ------------------------------------------ |
+| id                | UUID        | Primary key                                |
+| organization_id   | UUID        | Foreign key to organizations               |
+| name              | TEXT        | Project display name                       |
+| slug              | TEXT        | URL-friendly identifier                    |
+| ref               | TEXT        | Unique project reference (e.g., "default") |
+| database_host     | TEXT        | PostgreSQL host                            |
+| database_port     | INTEGER     | PostgreSQL port (default: 5432)            |
+| database_name     | TEXT        | Database name                              |
+| database_user     | TEXT        | Database user                              |
+| database_password | TEXT        | Database password                          |
+| postgres_meta_url | TEXT        | Postgres Meta service URL                  |
+| supabase_url      | TEXT        | Kong/API gateway URL                       |
+| status            | TEXT        | Project status (see below)                 |
+| created_at        | TIMESTAMPTZ | Creation timestamp                         |
+| updated_at        | TIMESTAMPTZ | Last update timestamp                      |
 
 **Status Values:**
+
 - `ACTIVE_HEALTHY` - Project running normally
 - `ACTIVE_UNHEALTHY` - Project running with issues
 - `COMING_UP` - Project starting
@@ -80,24 +84,27 @@ Stores project configuration and database connection details.
 - `UPGRADING` - Project being upgraded
 
 **Constraints:**
+
 - `ref` must be unique
 - `ref` format: lowercase alphanumeric with hyphens
 - Foreign key cascade delete: deleting an organization deletes all projects
 
 ### platform.credentials
+
 Stores JWT keys for each project.
 
-| Column            | Type         | Description                    |
-|-------------------|--------------|--------------------------------|
-| id                | UUID         | Primary key                    |
-| project_id        | UUID         | Foreign key to projects (unique) |
-| anon_key          | TEXT         | Anonymous access JWT           |
-| service_role_key  | TEXT         | Service role JWT               |
-| jwt_secret        | TEXT         | JWT signing secret             |
-| created_at        | TIMESTAMPTZ  | Creation timestamp             |
-| updated_at        | TIMESTAMPTZ  | Last update timestamp          |
+| Column           | Type        | Description                      |
+| ---------------- | ----------- | -------------------------------- |
+| id               | UUID        | Primary key                      |
+| project_id       | UUID        | Foreign key to projects (unique) |
+| anon_key         | TEXT        | Anonymous access JWT             |
+| service_role_key | TEXT        | Service role JWT                 |
+| jwt_secret       | TEXT        | JWT signing secret               |
+| created_at       | TIMESTAMPTZ | Creation timestamp               |
+| updated_at       | TIMESTAMPTZ | Last update timestamp            |
 
 **Constraints:**
+
 - One credential record per project (project_id is unique)
 - Foreign key cascade delete: deleting a project deletes credentials
 
@@ -114,10 +121,12 @@ Stores JWT keys for each project.
 You have two options:
 
 **Option A: Use your existing Railway Postgres database**
+
 - Add a new schema called `platform` to your existing database
 - This is simpler and uses the same database as your Supabase application
 
 **Option B: Create a separate PostgreSQL database**
+
 - Deploy a new PostgreSQL instance on Railway
 - Keep platform data separate from application data
 - Recommended for production deployments
@@ -127,16 +136,19 @@ You have two options:
 Your `DATABASE_URL` should point to your platform database (Railway Postgres).
 
 **Format:**
+
 ```
 postgresql://username:password@host:port/database
 ```
 
 **Example (Railway internal):**
+
 ```
 postgresql://postgres:sl2i90d6w7lzgejxxqwh3tiwuqxhtl64@postgres.railway.internal:5432/railway
 ```
 
 **Example (Railway public):**
+
 ```
 postgresql://postgres:sl2i90d6w7lzgejxxqwh3tiwuqxhtl64@roundhouse.proxy.rlwy.net:12345/railway
 ```
@@ -163,11 +175,13 @@ psql "your-database-url-here" -f migrations/001_create_platform_schema.sql
 ```
 
 **Verify migration:**
+
 ```bash
 psql "your-database-url-here" -c "\dt platform.*"
 ```
 
 You should see:
+
 - platform.organizations
 - platform.projects
 - platform.credentials
@@ -179,12 +193,14 @@ You can use either the SQL or Node.js seed script:
 #### Option A: Node.js Seed Script (Recommended)
 
 1. Install dependencies:
+
 ```bash
 cd apps/studio
 npm install pg
 ```
 
 2. Set DATABASE_URL and run:
+
 ```bash
 export DATABASE_URL="postgresql://user:pass@host:port/db"
 node database/seeds/seed.js
@@ -197,6 +213,7 @@ The script automatically reads configuration from `.env.production`.
 1. Edit `seeds/001_seed_default_data.sql`
 2. Update the configuration variables at the top
 3. Run the script:
+
 ```bash
 psql "your-database-url-here" -f seeds/001_seed_default_data.sql
 ```
@@ -216,6 +233,7 @@ PG_META_CRYPTO_KEY=your-random-32-character-key-here
 ```
 
 **Important:**
+
 - Use the **internal Railway URL** (`postgres.railway.internal`) if Studio is deployed on Railway
 - Use the **public URL** (`roundhouse.proxy.rlwy.net`) if Studio is deployed elsewhere (Vercel)
 - The `PG_META_CRYPTO_KEY` is used to encrypt the connection string when sending to pg-meta
@@ -235,6 +253,7 @@ vercel env add PG_META_CRYPTO_KEY
 ```
 
 2. Redeploy your Studio:
+
 ```bash
 vercel --prod
 ```
@@ -250,6 +269,7 @@ curl https://your-studio-url.vercel.app/api/platform/profile
 ```
 
 Expected response:
+
 ```json
 {
   "id": 1,
@@ -467,6 +487,7 @@ WHERE ref = 'default';
 The migration includes several helper functions:
 
 ### platform.generate_slug(text)
+
 Generates a URL-friendly slug from text.
 
 ```sql
@@ -475,6 +496,7 @@ SELECT platform.generate_slug('My Organization Name');
 ```
 
 ### platform.get_organization_by_slug(slug)
+
 Retrieves an organization by slug.
 
 ```sql
@@ -482,6 +504,7 @@ SELECT * FROM platform.get_organization_by_slug('ogelbase');
 ```
 
 ### platform.get_project_by_ref(ref)
+
 Retrieves a project by reference.
 
 ```sql
@@ -489,6 +512,7 @@ SELECT * FROM platform.get_project_by_ref('default');
 ```
 
 ### platform.get_credentials_by_project_ref(ref)
+
 Retrieves credentials for a project.
 
 ```sql
@@ -498,6 +522,7 @@ SELECT * FROM platform.get_credentials_by_project_ref('default');
 ## Useful Views
 
 ### platform.projects_with_credentials
+
 Combines project and credential data.
 
 ```sql
@@ -505,6 +530,7 @@ SELECT * FROM platform.projects_with_credentials WHERE ref = 'default';
 ```
 
 ### platform.organizations_with_stats
+
 Shows organizations with project counts.
 
 ```sql
@@ -545,13 +571,14 @@ SELECT * FROM platform.projects WHERE name LIKE '%search%';
 
 ## Migration History
 
-| Version | Date       | Description                    |
-|---------|------------|--------------------------------|
-| 001     | 2025-11-19 | Initial platform schema        |
+| Version | Date       | Description             |
+| ------- | ---------- | ----------------------- |
+| 001     | 2025-11-19 | Initial platform schema |
 
 ## Support
 
 For issues or questions:
+
 1. Check the [Troubleshooting](#troubleshooting) section
 2. Verify your environment variables
 3. Check Railway logs for database connection errors

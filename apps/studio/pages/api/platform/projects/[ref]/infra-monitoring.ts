@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next'
 import apiWrapper from 'lib/api/apiWrapper'
+import { authenticateAndVerifyProjectAccess } from 'lib/api/platform/project-access'
 
 export default (req: NextApiRequest, res: NextApiResponse) => apiWrapper(req, res, handler)
 
@@ -23,11 +24,11 @@ interface InfraMonitoringData {
 }
 
 const handleGetAll = async (req: NextApiRequest, res: NextApiResponse) => {
-  const { ref } = req.query
+  // Authenticate and verify access (any member can view monitoring)
+  const result = await authenticateAndVerifyProjectAccess(req, res)
+  if (!result) return // Response already sent
 
-  if (!ref || typeof ref !== 'string') {
-    return res.status(400).json({ error: { message: 'Project ref is required' } })
-  }
+  const { access } = result
 
   // Generate mock monitoring data for visualization
   const now = Date.now()
@@ -67,11 +68,11 @@ const handleGetAll = async (req: NextApiRequest, res: NextApiResponse) => {
         memory_usage,
         disk_io_budget
       FROM platform.project_metrics
-      WHERE project_id = (SELECT id FROM platform.projects WHERE ref = $1)
+      WHERE project_id = $1
         AND timestamp > NOW() - INTERVAL '24 hours'
       ORDER BY timestamp DESC
     `,
-    parameters: [ref],
+    parameters: [access.project.id],
   })
 
   if (error || !data || data.length === 0) {

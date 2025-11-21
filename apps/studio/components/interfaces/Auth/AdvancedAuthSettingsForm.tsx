@@ -102,7 +102,7 @@ export const AdvancedAuthSettingsForm = () => {
         })
       }
     }
-  }, [authConfig, isUpdatingRequestDurationForm, isUpdatingDatabaseForm])
+  }, [authConfig, isUpdatingRequestDurationForm, isUpdatingDatabaseForm, requestDurationForm, databaseForm])
 
   const onSubmitRequestDurationForm = (values: any) => {
     if (!projectRef) return console.error('Project ref is required')

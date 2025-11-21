@@ -2,6 +2,7 @@ import { NextApiRequest, NextApiResponse } from 'next'
 
 import apiWrapper from 'lib/api/apiWrapper'
 import { queryPlatformDatabase } from 'lib/api/platform/database'
+import { authenticateAndVerifyProjectAccess, getClientIp, getUserAgent, logAuditEvent } from 'lib/api/platform/project-access'
 
 export default (req: NextApiRequest, res: NextApiResponse) => apiWrapper(req, res, handler)
 
@@ -36,7 +37,9 @@ const INSTANCE_SIZES = {
   '8xlarge': { cpu: '64-core', memory_gb: 128 },
   '12xlarge': { cpu: '96-core', memory_gb: 192 },
   '16xlarge': { cpu: '128-core', memory_gb: 256 },
-}
+} as const
+
+type InstanceSizeKey = keyof typeof INSTANCE_SIZES
 
 const DEFAULT_COMPUTE_CONFIG: ComputeConfig = {
   instance_size: 'micro',
@@ -46,11 +49,12 @@ const DEFAULT_COMPUTE_CONFIG: ComputeConfig = {
 
 // GET - Get compute instance size
 const handleGet = async (req: NextApiRequest, res: NextApiResponse) => {
-  const { ref } = req.query
+  // Authenticate and verify access (any member can view)
+  const result = await authenticateAndVerifyProjectAccess(req, res)
+  if (!result) return // Response already sent
 
-  if (!ref || typeof ref !== 'string') {
-    return res.status(400).json({ error: { message: 'Project ref is required' } })
-  }
+  const { access } = result
+  const { ref } = req.query
 
   // If no DATABASE_URL is configured, return default compute config
   if (!process.env.DATABASE_URL) {
@@ -73,7 +77,7 @@ const handleGet = async (req: NextApiRequest, res: NextApiResponse) => {
   }
 
   const instanceSize = data[0].instance_size
-  const sizeConfig = INSTANCE_SIZES[instanceSize] || INSTANCE_SIZES.micro
+  const sizeConfig = INSTANCE_SIZES[instanceSize as InstanceSizeKey] || INSTANCE_SIZES.micro
 
   return res.status(200).json({
     instance_size: instanceSize,
@@ -84,19 +88,19 @@ const handleGet = async (req: NextApiRequest, res: NextApiResponse) => {
 
 // POST - Update compute size
 const handlePost = async (req: NextApiRequest, res: NextApiResponse) => {
-  const { ref } = req.query
-  const { instance_size } = req.body
+  // Authenticate and verify access (admin or owner can update)
+  const result = await authenticateAndVerifyProjectAccess(req, res, 'admin')
+  if (!result) return // Response already sent
 
-  if (!ref || typeof ref !== 'string') {
-    return res.status(400).json({ error: { message: 'Project ref is required' } })
-  }
+  const { user, access } = result
+  const { instance_size } = req.body
 
   if (!instance_size || typeof instance_size !== 'string') {
     return res.status(400).json({ error: { message: 'instance_size is required' } })
   }
 
   // Validate instance size
-  if (!INSTANCE_SIZES[instance_size]) {
+  if (!(instance_size in INSTANCE_SIZES)) {
     return res.status(400).json({
       error: {
         message: `Invalid instance size. Must be one of: ${Object.keys(INSTANCE_SIZES).join(', ')}`,
@@ -104,7 +108,7 @@ const handlePost = async (req: NextApiRequest, res: NextApiResponse) => {
     })
   }
 
-  const sizeConfig = INSTANCE_SIZES[instance_size]
+  const sizeConfig = INSTANCE_SIZES[instance_size as InstanceSizeKey]
 
   // If no DATABASE_URL is configured, return success with new config
   if (!process.env.DATABASE_URL) {
@@ -121,15 +125,26 @@ const handlePost = async (req: NextApiRequest, res: NextApiResponse) => {
       UPDATE platform.projects
       SET instance_size = $2,
           updated_at = NOW()
-      WHERE ref = $1
+      WHERE id = $1
       RETURNING instance_size
     `,
-    parameters: [ref, instance_size],
+    parameters: [access.project.id, instance_size],
   })
 
   if (error) {
     return res.status(500).json({ error: { message: 'Failed to update compute size' } })
   }
+
+  // Log audit event
+  await logAuditEvent({
+    userId: user.userId,
+    entityType: 'project',
+    entityId: access.project.id,
+    action: 'compute.update',
+    changes: { instance_size, cpu: sizeConfig.cpu, memory_gb: sizeConfig.memory_gb },
+    ipAddress: getClientIp(req),
+    userAgent: getUserAgent(req),
+  })
 
   return res.status(200).json({
     instance_size,

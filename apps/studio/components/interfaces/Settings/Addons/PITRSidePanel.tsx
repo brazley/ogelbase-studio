@@ -138,7 +138,7 @@ const PITRSidePanel = () => {
         setSelectedOption('pitr_0')
       }
     }
-  }, [visible, isLoading])
+  }, [visible, isLoading, subscriptionPitr])
 
   return (
     <SidePanel

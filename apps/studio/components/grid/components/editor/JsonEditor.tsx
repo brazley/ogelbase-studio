@@ -104,7 +104,22 @@ export const JsonEditor = <TRow, TSummaryRow = unknown>({
   const cancelChanges = useCallback(() => {
     if (isEditable) onRowChange(row, true)
     setIsPopoverOpen(false)
-  }, [])
+  }, [isEditable, onRowChange, row])
+
+  const commitChange = useCallback((newValue: string | null) => {
+    if (!isEditable) return
+
+    if (!newValue) {
+      onRowChange({ ...row, [column.key]: null }, true)
+      setIsPopoverOpen(false)
+    } else if (verifyJSON(newValue)) {
+      const jsonValue = JSON.parse(newValue)
+      onRowChange({ ...row, [column.key]: jsonValue }, true)
+      setIsPopoverOpen(false)
+    } else {
+      toast.error('Please enter a valid JSON')
+    }
+  }, [isEditable, onRowChange, row, column.key])
 
   const saveChanges = useCallback(
     (newValue: string | null) => {
@@ -115,7 +130,7 @@ export const JsonEditor = <TRow, TSummaryRow = unknown>({
         setIsPopoverOpen(false)
       }
     },
-    [isSuccess]
+    [value, commitChange]
   )
 
   const onChange = (_value: string | undefined) => {
@@ -130,21 +145,6 @@ export const JsonEditor = <TRow, TSummaryRow = unknown>({
       ...row,
       [column.key]: tryParseJson(value) || (row as any)[column.key],
     })
-  }
-
-  const commitChange = (newValue: string | null) => {
-    if (!isEditable) return
-
-    if (!newValue) {
-      onRowChange({ ...row, [column.key]: null }, true)
-      setIsPopoverOpen(false)
-    } else if (verifyJSON(newValue)) {
-      const jsonValue = JSON.parse(newValue)
-      onRowChange({ ...row, [column.key]: jsonValue }, true)
-      setIsPopoverOpen(false)
-    } else {
-      toast.error('Please enter a valid JSON')
-    }
   }
 
   return (

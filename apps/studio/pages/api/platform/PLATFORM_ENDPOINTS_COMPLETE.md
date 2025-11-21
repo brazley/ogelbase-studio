@@ -1,6 +1,7 @@
 # Platform API Endpoints - Complete Implementation
 
 ## Overview
+
 This document describes all the platform API endpoints that have been created or updated to support self-hosted mode with IS_PLATFORM=true. All endpoints implement a fallback pattern that works without a DATABASE_URL configured.
 
 ## Implementation Pattern
@@ -36,6 +37,7 @@ return res.status(200).json(data)
 ## Organization Endpoints
 
 ### 1. Billing Plans
+
 **File**: `/apps/studio/pages/api/platform/organizations/[slug]/billing/plans.ts`
 
 **Method**: `GET`
@@ -43,6 +45,7 @@ return res.status(200).json(data)
 **Purpose**: Returns available billing plans (Free, Pro, Team, Enterprise)
 
 **Default Response**:
+
 ```json
 [
   {
@@ -59,6 +62,7 @@ return res.status(200).json(data)
 ```
 
 **Database Query** (when available):
+
 ```sql
 SELECT * FROM platform.billing_plans
 WHERE active = true
@@ -68,6 +72,7 @@ ORDER BY price ASC
 ---
 
 ### 2. Payment Methods
+
 **File**: `/apps/studio/pages/api/platform/organizations/[slug]/payments.ts`
 
 **Methods**: `GET`, `POST`, `PUT`, `DELETE`
@@ -75,20 +80,25 @@ ORDER BY price ASC
 **Purpose**: Manage organization payment methods
 
 **GET - List payment methods**:
+
 - Default: Returns empty array `[]`
 - Query: Lists all payment methods for the organization
 
 **POST - Add payment method**:
+
 - Creates Stripe SetupIntent (mock in self-hosted mode)
 - Adds new payment method to organization
 
 **PUT - Set default payment method**:
+
 - Updates which payment method is default
 
 **DELETE - Remove payment method**:
+
 - Removes payment method from organization
 
 **Default Response** (GET):
+
 ```json
 []
 ```
@@ -96,6 +106,7 @@ ORDER BY price ASC
 ---
 
 ### 3. Tax IDs
+
 **File**: `/apps/studio/pages/api/platform/organizations/[slug]/tax-ids.ts`
 
 **Methods**: `GET`, `PUT`, `DELETE`
@@ -103,18 +114,22 @@ ORDER BY price ASC
 **Purpose**: Manage organization tax IDs (VAT, EIN, etc.)
 
 **GET - List tax IDs**:
+
 - Default: Returns empty array `[]`
 - Query: Lists all tax IDs for the organization
 
 **PUT - Add tax ID**:
+
 - Adds a new tax ID (type, value, country)
 
 **DELETE - Remove tax ID**:
+
 - Removes a tax ID
 
 ---
 
 ### 4. Free Project Limit
+
 **File**: `/apps/studio/pages/api/platform/organizations/[slug]/free-project-limit.ts`
 
 **Method**: `GET`
@@ -122,6 +137,7 @@ ORDER BY price ASC
 **Purpose**: Returns free tier project limit information
 
 **Default Response**:
+
 ```json
 {
   "limit": 2,
@@ -131,6 +147,7 @@ ORDER BY price ASC
 ```
 
 **Database Query** (when available):
+
 ```sql
 SELECT COUNT(*)::int as count
 FROM platform.projects p
@@ -141,6 +158,7 @@ WHERE o.slug = $1
 ---
 
 ### 5. Organization Usage
+
 **File**: `/apps/studio/pages/api/platform/organizations/[slug]/usage.ts`
 
 **Method**: `GET`
@@ -148,6 +166,7 @@ WHERE o.slug = $1
 **Purpose**: Returns organization-wide usage metrics
 
 **Default Response**:
+
 ```json
 {
   "db_size_bytes": 0,
@@ -163,6 +182,7 @@ WHERE o.slug = $1
 ```
 
 **Database Query** (when available):
+
 ```sql
 SELECT
   COALESCE(SUM(p.db_size_bytes), 0) as db_size_bytes,
@@ -177,6 +197,7 @@ GROUP BY o.id
 ---
 
 ### 6. Billing Subscription (UPDATED)
+
 **File**: `/apps/studio/pages/api/platform/organizations/[slug]/billing/subscription.ts`
 
 **Method**: `GET`
@@ -184,11 +205,13 @@ GROUP BY o.id
 **Purpose**: Returns organization subscription details
 
 **Changes**:
+
 - Added DATABASE_URL check
 - Added database query for real subscription data
 - Falls back to Enterprise plan when no data available
 
 **Default Response**:
+
 ```json
 {
   "billing_cycle_anchor": 0,
@@ -216,6 +239,7 @@ GROUP BY o.id
 ## Project Endpoints
 
 ### 7. Disk Configuration
+
 **File**: `/apps/studio/pages/api/platform/projects/[ref]/disk.ts`
 
 **Methods**: `GET`, `POST`
@@ -224,6 +248,7 @@ GROUP BY o.id
 
 **GET - Get disk configuration**:
 **Default Response**:
+
 ```json
 {
   "size_gb": 8,
@@ -233,6 +258,7 @@ GROUP BY o.id
 ```
 
 **POST - Update disk size**:
+
 - Validates size is between 8GB and 16384GB
 - Updates disk size and recalculates IO budget
 - Returns status "modifying" during update
@@ -240,6 +266,7 @@ GROUP BY o.id
 ---
 
 ### 8. Disk Utilization
+
 **File**: `/apps/studio/pages/api/platform/projects/[ref]/disk/util.ts`
 
 **Method**: `GET`
@@ -247,6 +274,7 @@ GROUP BY o.id
 **Purpose**: Returns current disk utilization
 
 **Default Response**:
+
 ```json
 {
   "used_gb": 0.5,
@@ -256,6 +284,7 @@ GROUP BY o.id
 ```
 
 **Database Query** (when available):
+
 ```sql
 SELECT
   COALESCE(db_size_bytes / 1073741824.0, 0.5) as used_gb,
@@ -268,6 +297,7 @@ WHERE ref = $1
 ---
 
 ### 9. Disk Auto-Scale Configuration
+
 **File**: `/apps/studio/pages/api/platform/projects/[ref]/disk/custom-config.ts`
 
 **Methods**: `GET`, `POST`
@@ -276,6 +306,7 @@ WHERE ref = $1
 
 **GET - Get auto-scale config**:
 **Default Response**:
+
 ```json
 {
   "enabled": false,
@@ -284,12 +315,14 @@ WHERE ref = $1
 ```
 
 **POST - Update auto-scale config**:
+
 - Validates limit_gb is between 8 and 16384
 - Updates enabled status and limit
 
 ---
 
 ### 10. Compute Configuration
+
 **File**: `/apps/studio/pages/api/platform/projects/[ref]/compute.ts`
 
 **Methods**: `GET`, `POST`
@@ -298,6 +331,7 @@ WHERE ref = $1
 
 **GET - Get compute configuration**:
 **Default Response**:
+
 ```json
 {
   "instance_size": "micro",
@@ -307,6 +341,7 @@ WHERE ref = $1
 ```
 
 **Supported Instance Sizes**:
+
 - `micro`: 2-core shared, 1GB RAM
 - `small`: 2-core shared, 2GB RAM
 - `medium`: 2-core, 4GB RAM
@@ -319,12 +354,14 @@ WHERE ref = $1
 - `16xlarge`: 128-core, 256GB RAM
 
 **POST - Update compute size**:
+
 - Validates instance_size is in supported list
 - Updates instance size
 
 ---
 
 ### 11. Billing Add-ons (UPDATED)
+
 **File**: `/apps/studio/pages/api/platform/projects/[ref]/billing/addons.ts`
 
 **Method**: `GET`
@@ -332,11 +369,13 @@ WHERE ref = $1
 **Purpose**: Returns project add-ons (selected and available)
 
 **Changes**:
+
 - Added DATABASE_URL check
 - Added database query for real add-on data
 - Falls back to default available add-ons
 
 **Default Response**:
+
 ```json
 {
   "ref": "project-ref",
@@ -370,6 +409,7 @@ WHERE ref = $1
 ---
 
 ### 12. Infrastructure Monitoring (UPDATED)
+
 **File**: `/apps/studio/pages/api/platform/projects/[ref]/infra-monitoring.ts`
 
 **Method**: `GET`
@@ -377,11 +417,13 @@ WHERE ref = $1
 **Purpose**: Returns infrastructure monitoring metrics
 
 **Changes**:
+
 - Added mock data generation for 24-hour period
 - Added database query for real metrics
 - Falls back to mock data when no database
 
 **Default Response**:
+
 ```json
 {
   "data": [
@@ -406,6 +448,7 @@ WHERE ref = $1
 For full functionality with a platform database, these tables are expected:
 
 ### Organizations
+
 ```sql
 CREATE TABLE platform.organizations (
   id SERIAL PRIMARY KEY,
@@ -418,6 +461,7 @@ CREATE TABLE platform.organizations (
 ```
 
 ### Projects
+
 ```sql
 CREATE TABLE platform.projects (
   id SERIAL PRIMARY KEY,
@@ -439,6 +483,7 @@ CREATE TABLE platform.projects (
 ```
 
 ### Billing Plans
+
 ```sql
 CREATE TABLE platform.billing_plans (
   id TEXT PRIMARY KEY,
@@ -453,6 +498,7 @@ CREATE TABLE platform.billing_plans (
 ```
 
 ### Subscriptions
+
 ```sql
 CREATE TABLE platform.subscriptions (
   id SERIAL PRIMARY KEY,
@@ -475,6 +521,7 @@ CREATE TABLE platform.subscriptions (
 ```
 
 ### Payment Methods
+
 ```sql
 CREATE TABLE platform.payment_methods (
   id TEXT PRIMARY KEY,
@@ -491,6 +538,7 @@ CREATE TABLE platform.payment_methods (
 ```
 
 ### Tax IDs
+
 ```sql
 CREATE TABLE platform.tax_ids (
   id TEXT PRIMARY KEY,
@@ -503,6 +551,7 @@ CREATE TABLE platform.tax_ids (
 ```
 
 ### Add-ons
+
 ```sql
 CREATE TABLE platform.addons (
   id TEXT PRIMARY KEY,
@@ -521,6 +570,7 @@ CREATE TABLE platform.project_addons (
 ```
 
 ### Project Metrics
+
 ```sql
 CREATE TABLE platform.project_metrics (
   id SERIAL PRIMARY KEY,
@@ -537,6 +587,7 @@ ON platform.project_metrics(project_id, timestamp DESC);
 ```
 
 ### Organization Members
+
 ```sql
 CREATE TABLE platform.organization_members (
   id SERIAL PRIMARY KEY,
@@ -587,6 +638,7 @@ curl http://localhost:3000/api/platform/projects/default/infra-monitoring
 ## Files Created/Modified
 
 ### Created (9 new files):
+
 1. `/apps/studio/pages/api/platform/organizations/[slug]/billing/plans.ts`
 2. `/apps/studio/pages/api/platform/organizations/[slug]/payments.ts`
 3. `/apps/studio/pages/api/platform/organizations/[slug]/tax-ids.ts`
@@ -598,6 +650,7 @@ curl http://localhost:3000/api/platform/projects/default/infra-monitoring
 9. `/apps/studio/pages/api/platform/projects/[ref]/compute.ts`
 
 ### Modified (3 existing files):
+
 1. `/apps/studio/pages/api/platform/organizations/[slug]/billing/subscription.ts`
 2. `/apps/studio/pages/api/platform/projects/[ref]/billing/addons.ts`
 3. `/apps/studio/pages/api/platform/projects/[ref]/infra-monitoring.ts`

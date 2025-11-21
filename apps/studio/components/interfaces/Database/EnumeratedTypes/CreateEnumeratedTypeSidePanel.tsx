@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { AlertCircle, ExternalLink, Plus } from 'lucide-react'
 import Link from 'next/link'
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { DragDropContext, Droppable, DroppableProvided } from 'react-beautiful-dnd'
 import { useFieldArray, useForm } from 'react-hook-form'
 import { toast } from 'sonner'
@@ -39,7 +39,7 @@ const CreateEnumeratedTypeSidePanel = ({
   onClose,
   schema,
 }: CreateEnumeratedTypeSidePanelProps) => {
-  const initialValues = { name: '', description: '', values: [{ value: '' }] }
+  const initialValues = useMemo(() => ({ name: '', description: '', values: [{ value: '' }] }), [])
   const submitRef = useRef<HTMLButtonElement>(null)
   const { data: project } = useSelectedProjectQuery()
   const { mutate: createEnumeratedType, isLoading: isCreating } = useEnumeratedTypeCreateMutation({
@@ -48,10 +48,6 @@ const CreateEnumeratedTypeSidePanel = ({
       closePanel()
     },
   })
-
-  useEffect(() => {
-    form.reset(initialValues)
-  }, [visible])
 
   const FormSchema = z.object({
     name: z
@@ -72,6 +68,10 @@ const CreateEnumeratedTypeSidePanel = ({
     resolver: zodResolver(FormSchema),
     defaultValues: initialValues,
   })
+
+  useEffect(() => {
+    form.reset(initialValues)
+  }, [visible, form, initialValues])
 
   const { fields, append, remove, move } = useFieldArray({
     name: 'values',

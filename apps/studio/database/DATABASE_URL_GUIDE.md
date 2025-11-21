@@ -38,11 +38,13 @@ postgresql://postgres:YOUR_PASSWORD@postgres.railway.internal:5432/railway
 ```
 
 **Advantages:**
+
 - Faster (internal network)
 - More secure (not exposed to internet)
 - No connection limits
 
 **Get the password:**
+
 1. Open your Railway project
 2. Click on Postgres service
 3. Go to "Variables" tab
@@ -57,12 +59,14 @@ postgresql://postgres:YOUR_PASSWORD@roundhouse.proxy.rlwy.net:YOUR_PORT/railway
 ```
 
 **Get the URL:**
+
 1. Open your Railway project
 2. Click on Postgres service
 3. Go to "Variables" tab
 4. Copy `DATABASE_URL` (it's already formatted)
 
 **Or construct it from:**
+
 - `PGHOST` → host
 - `PGPORT` → port
 - `PGUSER` → user
@@ -70,6 +74,7 @@ postgresql://postgres:YOUR_PASSWORD@roundhouse.proxy.rlwy.net:YOUR_PORT/railway
 - `PGDATABASE` → database
 
 **Note:** Public connections may require SSL:
+
 ```
 postgresql://postgres:PASSWORD@roundhouse.proxy.rlwy.net:PORT/railway?sslmode=require
 ```
@@ -142,6 +147,7 @@ head -c 32 /dev/urandom | base64
 ```
 
 **Example:**
+
 ```
 PG_META_CRYPTO_KEY=8f7a3b2c9d1e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9
 ```
@@ -193,6 +199,7 @@ curl https://your-studio.vercel.app/api/platform/profile
 **Cause:** `DATABASE_URL` is not set or not accessible by the application.
 
 **Solutions:**
+
 1. Check `.env.production` file exists and contains `DATABASE_URL`
 2. For Vercel: Ensure environment variable is set in project settings
 3. For local: Export the variable or use `dotenv`
@@ -210,11 +217,14 @@ npm install dotenv
 **Cause:** Cannot reach the database server.
 
 **Solutions:**
+
 1. **Wrong hostname**: Check if you're using internal vs. public URL correctly
+
    - Railway deployment → use `postgres.railway.internal`
    - Vercel deployment → use `roundhouse.proxy.rlwy.net`
 
 2. **Firewall/Network**: Ensure Railway allows connections
+
    - Public URL should work from anywhere
    - Internal URL only works within Railway
 
@@ -228,6 +238,7 @@ npm install dotenv
 **Cause:** Incorrect password or username.
 
 **Solutions:**
+
 1. Copy password directly from Railway variables (don't type it)
 2. Check for special characters that need URL encoding:
    - `@` → `%40`
@@ -236,6 +247,7 @@ npm install dotenv
    - `:` → `%3A`
 
 **Example with special chars:**
+
 ```
 # Password: p@ss#word
 # Encoded:  p%40ss%23word
@@ -247,6 +259,7 @@ postgresql://postgres:p%40ss%23word@host:5432/railway
 **Cause:** Wrong database name.
 
 **Solutions:**
+
 1. Check the database name in Railway variables (`PGDATABASE`)
 2. Common names: `railway`, `postgres`, `defaultdb`
 3. Update the URL with correct database name
@@ -278,16 +291,19 @@ DATABASE_REPLICA_URL=postgresql://postgres:pass@replica:5432/railway
 ### SSL Configuration
 
 **Require SSL:**
+
 ```
 ?sslmode=require
 ```
 
 **Verify SSL certificate:**
+
 ```
 ?sslmode=verify-full
 ```
 
 **Disable SSL (not recommended for production):**
+
 ```
 ?sslmode=disable
 ```
@@ -295,23 +311,28 @@ DATABASE_REPLICA_URL=postgresql://postgres:pass@replica:5432/railway
 ## Security Best Practices
 
 1. **Never commit DATABASE_URL to git**
+
    - Use `.gitignore` for `.env*` files
    - Use environment variables in CI/CD
 
 2. **Use strong passwords**
+
    - Minimum 32 characters
    - Mix of letters, numbers, symbols
    - Railway generates secure passwords automatically
 
 3. **Rotate credentials regularly**
+
    - Update password every 90 days
    - Update in both Railway and Vercel
 
 4. **Limit network access**
+
    - Use internal URLs when possible
    - For public access, use Railway's IP allowlist (if available)
 
 5. **Use SSL in production**
+
    - Always add `?sslmode=require` for public connections
 
 6. **Encrypt crypto key**
@@ -321,16 +342,19 @@ DATABASE_REPLICA_URL=postgresql://postgres:pass@replica:5432/railway
 ## Quick Reference
 
 ### Railway + Railway Studio
+
 ```bash
 DATABASE_URL=postgresql://postgres:PASSWORD@postgres.railway.internal:5432/railway
 ```
 
 ### Railway + Vercel Studio
+
 ```bash
 DATABASE_URL=postgresql://postgres:PASSWORD@roundhouse.proxy.rlwy.net:PORT/railway?sslmode=require
 ```
 
 ### Get Railway Connection Info
+
 ```bash
 # From Railway CLI
 railway variables
@@ -340,6 +364,7 @@ railway variables
 ```
 
 ### Set in Vercel
+
 ```bash
 vercel env add DATABASE_URL
 vercel env add PG_META_CRYPTO_KEY
@@ -347,6 +372,7 @@ vercel --prod
 ```
 
 ### Test Connection
+
 ```bash
 psql "$DATABASE_URL" -c "\dt platform.*"
 ```

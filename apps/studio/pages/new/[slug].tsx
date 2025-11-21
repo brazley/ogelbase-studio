@@ -352,25 +352,25 @@ const Wizard: NextPageWithLayout = () => {
     // While the form data does load immediately
     if (slug && slug !== '_') form.setValue('organization', slug)
     if (projectName) form.setValue('projectName', projectName || '')
-  }, [slug])
+  }, [slug, form, projectName])
 
   useEffect(() => {
     if (form.getValues('dbRegion') === undefined && defaultRegion) {
       form.setValue('dbRegion', defaultRegion)
     }
-  }, [defaultRegion])
+  }, [defaultRegion, form])
 
   useEffect(() => {
     if (regionError) {
       form.setValue('dbRegion', PROVIDERS[defaultProvider].default_region.displayName)
     }
-  }, [regionError])
+  }, [regionError, defaultProvider, form])
 
   useEffect(() => {
     if (recommendedSmartRegion) {
       form.setValue('dbRegion', recommendedSmartRegion)
     }
-  }, [recommendedSmartRegion])
+  }, [recommendedSmartRegion, form])
 
   useEffect(() => {
     if (watchedInstanceSize !== instanceSize) {

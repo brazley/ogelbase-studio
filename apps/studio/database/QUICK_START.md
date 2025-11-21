@@ -5,6 +5,7 @@ Get your platform database up and running in 5 minutes.
 ## What You're Setting Up
 
 A PostgreSQL database that stores:
+
 - **Organizations** - Your teams/companies
 - **Projects** - Supabase projects within organizations
 - **Credentials** - JWT keys for each project
@@ -29,6 +30,7 @@ railway variables | grep DATABASE_URL
 ```
 
 **Important:**
+
 - Use **internal URL** (`postgres.railway.internal`) if Studio is on Railway
 - Use **public URL** (`roundhouse.proxy.rlwy.net`) if Studio is on Vercel
 
@@ -109,6 +111,7 @@ curl http://localhost:3000/api/platform/profile
 ```
 
 Should return:
+
 ```json
 {
   "id": 1,
@@ -172,10 +175,12 @@ psql "$DATABASE_URL" -f migrations/001_create_platform_schema.sql
 ### "connection refused"
 
 Wrong URL format. For Vercel deployments, use:
+
 - Railway **public** URL (`roundhouse.proxy.rlwy.net`)
 - Add `?sslmode=require`
 
 Example:
+
 ```
 postgresql://postgres:PASS@roundhouse.proxy.rlwy.net:12345/railway?sslmode=require
 ```
@@ -194,14 +199,17 @@ node seeds/seed.js
 After successful setup:
 
 1. **Verify data** in Railway:
+
    ```bash
    psql "$DATABASE_URL" -c "SELECT * FROM platform.organizations;"
    ```
 
 2. **Check Vercel logs** for any errors:
+
    - Vercel Dashboard → Your Project → Deployments → Functions
 
 3. **Set up backups**:
+
    ```bash
    pg_dump "$DATABASE_URL" --schema=platform -f backup.sql
    ```
@@ -249,16 +257,16 @@ vercel env ls
 
 **Required Environment Variables:**
 
-| Variable | Example | Where |
-|----------|---------|-------|
-| `DATABASE_URL` | `postgresql://postgres:...` | .env.production + Vercel |
-| `PG_META_CRYPTO_KEY` | `8f7a3b2c9d1e4f...` | .env.production + Vercel |
-| `DEFAULT_ORGANIZATION_NAME` | `OgelBase` | .env.production |
-| `DEFAULT_PROJECT_NAME` | `Default Project` | .env.production |
-| `SUPABASE_URL` | `https://kong-...` | .env.production |
-| `SUPABASE_ANON_KEY` | `eyJhbGc...` | .env.production |
-| `SUPABASE_SERVICE_KEY` | `eyJhbGc...` | .env.production |
-| `STUDIO_PG_META_URL` | `https://postgres-meta-...` | .env.production |
+| Variable                    | Example                     | Where                    |
+| --------------------------- | --------------------------- | ------------------------ |
+| `DATABASE_URL`              | `postgresql://postgres:...` | .env.production + Vercel |
+| `PG_META_CRYPTO_KEY`        | `8f7a3b2c9d1e4f...`         | .env.production + Vercel |
+| `DEFAULT_ORGANIZATION_NAME` | `OgelBase`                  | .env.production          |
+| `DEFAULT_PROJECT_NAME`      | `Default Project`           | .env.production          |
+| `SUPABASE_URL`              | `https://kong-...`          | .env.production          |
+| `SUPABASE_ANON_KEY`         | `eyJhbGc...`                | .env.production          |
+| `SUPABASE_SERVICE_KEY`      | `eyJhbGc...`                | .env.production          |
+| `STUDIO_PG_META_URL`        | `https://postgres-meta-...` | .env.production          |
 
 **Database Schema:**
 
@@ -277,6 +285,7 @@ vercel env ls
 You now have a fully configured platform database for Supabase Studio.
 
 Your Studio can now:
+
 - List organizations and projects
 - Manage multiple projects
 - Store credentials securely

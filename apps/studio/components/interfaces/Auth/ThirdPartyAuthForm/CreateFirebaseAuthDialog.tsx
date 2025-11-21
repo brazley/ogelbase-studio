@@ -76,7 +76,7 @@ export const CreateFirebaseAuthIntegrationDialog = ({
         form.setFocus('firebaseProjectId')
       }, 25)
     }
-  }, [visible])
+  }, [visible, form])
 
   const onSubmit: SubmitHandler<z.infer<typeof FormSchema>> = async (values) => {
     createAuthIntegration({

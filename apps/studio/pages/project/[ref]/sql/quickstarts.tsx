@@ -28,7 +28,7 @@ const SqlQuickstarts: NextPageWithLayout = () => {
         name: 'quickstarts',
       },
     })
-  }, [router.isReady, ref])
+  }, [router.isReady, ref, tabs])
 
   return <SQLQuickstarts />
 }

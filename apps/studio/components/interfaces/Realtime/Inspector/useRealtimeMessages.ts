@@ -119,7 +119,7 @@ export const useRealtimeMessages = (
       realtimeClient.disconnect()
       setClient(undefined)
     }
-  }, [enabled, bearer, host, logLevel, token])
+  }, [enabled, bearer, host, logLevel, token, realtimeUrl])
 
   useEffect(() => {
     if (!client) {
@@ -219,6 +219,10 @@ export const useRealtimeMessages = (
     host,
     schema,
     table,
+    config,
+    isChannelPrivate,
+    roleImpersonationState.role?.role,
+    setRealtimeConfig,
   ])
 
   const sendMessage = useCallback(

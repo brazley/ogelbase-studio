@@ -1931,11 +1931,9 @@ export const StorageExplorerStateContextProvider = ({ children }: PropsWithChild
     state.projectRef,
     project?.ref,
     project?.connectionString,
-    stateRef,
     isPaused,
     resumableUploadUrl,
-    protocol,
-    endpoint,
+    clientEndpoint,
     isSuccessSettings,
   ])
 

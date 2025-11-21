@@ -269,7 +269,7 @@ export const CreateHookSheet = ({
         })
       }
     }
-  }, [authConfig, title, visible, definition])
+  }, [authConfig, title, visible, definition, form])
 
   return (
     <Sheet open={visible} onOpenChange={() => onClose()}>

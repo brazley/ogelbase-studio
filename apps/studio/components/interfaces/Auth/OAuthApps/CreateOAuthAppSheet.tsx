@@ -98,7 +98,7 @@ export const CreateOAuthAppSheet = ({ visible, onSuccess, onCancel }: CreateOAut
     if (visible) {
       form.reset(initialValues)
     }
-  }, [visible])
+  }, [visible, form])
 
   const onSubmit = async (data: z.infer<typeof FormSchema>) => {
     // Filter out empty redirect URIs

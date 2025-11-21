@@ -87,7 +87,7 @@ export const BasicAuthSettingsForm = () => {
         SITE_URL: authConfig.SITE_URL,
       })
     }
-  }, [authConfig])
+  }, [authConfig, form])
 
   const onSubmit = (values: any) => {
     const payload = { ...values }

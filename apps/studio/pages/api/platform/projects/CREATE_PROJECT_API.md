@@ -18,19 +18,19 @@ Content-Type: application/json
 
 ## Request Body
 
-| Field | Type | Required | Default | Description |
-|-------|------|----------|---------|-------------|
-| `name` | string | Yes | - | Human-readable project name |
-| `organization_id` | string (UUID) | Yes | - | ID of the organization this project belongs to |
-| `database_host` | string | Yes | - | PostgreSQL database host (e.g., "postgres.railway.internal") |
-| `database_port` | number | No | 5432 | PostgreSQL database port |
-| `database_name` | string | Yes | - | PostgreSQL database name |
-| `database_user` | string | Yes | - | PostgreSQL database user |
-| `database_password` | string | Yes | - | PostgreSQL database password |
-| `postgres_meta_url` | string (URL) | Yes | - | Postgres Meta service URL |
-| `supabase_url` | string (URL) | Yes | - | Supabase Kong/API Gateway URL |
-| `ref` | string | No | auto-generated | Custom project reference (slug). Must be lowercase alphanumeric with hyphens |
-| `status` | string | No | "ACTIVE_HEALTHY" | Initial project status |
+| Field               | Type          | Required | Default          | Description                                                                  |
+| ------------------- | ------------- | -------- | ---------------- | ---------------------------------------------------------------------------- |
+| `name`              | string        | Yes      | -                | Human-readable project name                                                  |
+| `organization_id`   | string (UUID) | Yes      | -                | ID of the organization this project belongs to                               |
+| `database_host`     | string        | Yes      | -                | PostgreSQL database host (e.g., "postgres.railway.internal")                 |
+| `database_port`     | number        | No       | 5432             | PostgreSQL database port                                                     |
+| `database_name`     | string        | Yes      | -                | PostgreSQL database name                                                     |
+| `database_user`     | string        | Yes      | -                | PostgreSQL database user                                                     |
+| `database_password` | string        | Yes      | -                | PostgreSQL database password                                                 |
+| `postgres_meta_url` | string (URL)  | Yes      | -                | Postgres Meta service URL                                                    |
+| `supabase_url`      | string (URL)  | Yes      | -                | Supabase Kong/API Gateway URL                                                |
+| `ref`               | string        | No       | auto-generated   | Custom project reference (slug). Must be lowercase alphanumeric with hyphens |
+| `status`            | string        | No       | "ACTIVE_HEALTHY" | Initial project status                                                       |
 
 ### Valid Status Values
 
@@ -221,6 +221,7 @@ Generated JWT tokens have the following structure:
 ### Transaction Safety
 
 The API implements basic transaction safety:
+
 - If credential creation fails after project creation, the project is automatically deleted
 - Organization existence is verified before creating the project
 - Project ref uniqueness is checked before insertion
@@ -228,10 +229,12 @@ The API implements basic transaction safety:
 ### Validation Rules
 
 #### Project Name
+
 - Cannot be empty
 - Whitespace is trimmed
 
 #### Project Ref (if provided)
+
 - Must be lowercase
 - Can contain alphanumeric characters and hyphens
 - Must start and end with alphanumeric characters
@@ -239,10 +242,12 @@ The API implements basic transaction safety:
 - Pattern: `^[a-z0-9][a-z0-9-]*[a-z0-9]$`
 
 #### Database Port
+
 - Must be between 1 and 65535
 - Default: 5432
 
 #### URLs (postgres_meta_url, supabase_url)
+
 - Must be valid URLs
 - Must use HTTP or HTTPS protocol
 
@@ -363,6 +368,7 @@ curl -X POST https://your-studio-domain.com/api/platform/projects/create \
 ## Security Considerations
 
 1. **Sensitive Data**: The response includes sensitive information (database passwords, JWT secrets). Ensure:
+
    - API endpoint is only accessible over HTTPS in production
    - Proper authentication/authorization is implemented
    - Response data is stored securely

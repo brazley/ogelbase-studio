@@ -187,7 +187,7 @@ export const QueuesSettings = () => {
 
   useEffect(() => {
     if (isSuccess) form.reset({ enable: isExposed })
-  }, [isSuccess])
+  }, [isSuccess, isExposed, form])
 
   return (
     <>

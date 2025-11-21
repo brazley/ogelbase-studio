@@ -47,7 +47,7 @@ const TableEditorPage: NextPageWithLayout = () => {
           )
       }
     }
-  }, [isHistoryLoaded])
+  }, [isHistoryLoaded, history.editor, projectRef, router, tabStore.openTabs, tabStore.tabsMap])
 
   return (
     <>

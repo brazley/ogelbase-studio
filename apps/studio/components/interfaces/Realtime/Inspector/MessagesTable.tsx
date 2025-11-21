@@ -134,7 +134,7 @@ const MessagesTable = ({
     if (!found) {
       setFocusedLog(null)
     }
-  }, [stringData])
+  }, [stringData, data, focusedLog?.id, setFocusedLog])
 
   if (!data) return null
 

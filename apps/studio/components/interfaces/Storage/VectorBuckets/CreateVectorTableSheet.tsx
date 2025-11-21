@@ -184,7 +184,7 @@ export const CreateVectorTableSheet = ({ bucketName }: CreateVectorTableSheetPro
     if (!visible) {
       form.reset()
     }
-  }, [visible])
+  }, [visible, form])
 
   return (
     <Sheet open={visible} onOpenChange={setVisible}>

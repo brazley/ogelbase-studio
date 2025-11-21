@@ -64,7 +64,7 @@ const ForgotPasswordMfa: NextPageWithLayout = () => {
         setLoading(false)
         router.push({ pathname: '/sign-in', query: router.query })
       })
-  }, [])
+  }, [queryClient, router])
 
   if (loading) {
     return (

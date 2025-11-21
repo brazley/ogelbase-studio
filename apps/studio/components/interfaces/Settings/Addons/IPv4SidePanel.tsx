@@ -77,7 +77,7 @@ const IPv4SidePanel = () => {
         setSelectedOption('ipv4_none')
       }
     }
-  }, [visible, isLoading])
+  }, [visible, isLoading, subscriptionIpV4Option])
 
   const onConfirm = async () => {
     if (!projectRef) return console.error('Project ref is required')

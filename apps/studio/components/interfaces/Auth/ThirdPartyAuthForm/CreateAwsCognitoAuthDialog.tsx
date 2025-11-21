@@ -81,7 +81,7 @@ export const CreateAwsCognitoAuthIntegrationDialog = ({
         form.setFocus('awsCognitoUserPoolId')
       }, 25)
     }
-  }, [visible])
+  }, [visible, form])
 
   const onSubmit: SubmitHandler<z.infer<typeof FormSchema>> = async (values) => {
     createAuthIntegration({

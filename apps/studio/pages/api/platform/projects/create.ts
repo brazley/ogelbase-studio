@@ -1,5 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next'
-import apiWrapper from 'lib/api/apiWrapper'
+import apiWrapper, { AuthenticatedRequest } from 'lib/api/apiWrapper'
 import {
   queryPlatformDatabase,
   PlatformProject,
@@ -13,6 +13,7 @@ import {
   validateDatabaseConnection,
   validateURL,
 } from 'lib/api/platform/project-utils'
+import { logAuditEventFromRequest } from 'lib/api/platform/audit'
 
 /**
  * POST /api/platform/projects/create
@@ -68,9 +69,10 @@ import {
  * Response (500): Internal server error
  */
 
-export default (req: NextApiRequest, res: NextApiResponse) => apiWrapper(req, res, handler)
+export default (req: NextApiRequest, res: NextApiResponse) =>
+  apiWrapper(req, res, handler, { withAuth: true })
 
-async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: AuthenticatedRequest, res: NextApiResponse) {
   const { method } = req
 
   switch (method) {
@@ -96,7 +98,7 @@ interface CreateProjectRequest {
   status?: string
 }
 
-const handleCreate = async (req: NextApiRequest, res: NextApiResponse) => {
+const handleCreate = async (req: AuthenticatedRequest, res: NextApiResponse) => {
   try {
     const {
       name,
@@ -283,7 +285,12 @@ const handleCreate = async (req: NextApiRequest, res: NextApiResponse) => {
         ) VALUES ($1, $2, $3, $4)
         RETURNING *
       `,
-      parameters: [project.id, credentials.anon_key, credentials.service_role_key, credentials.jwt_secret],
+      parameters: [
+        project.id,
+        credentials.anon_key,
+        credentials.service_role_key,
+        credentials.jwt_secret,
+      ],
     })
 
     if (credentialsInsertResult.error || !credentialsInsertResult.data) {
@@ -302,6 +309,20 @@ const handleCreate = async (req: NextApiRequest, res: NextApiResponse) => {
     }
 
     const projectCredentials = credentialsInsertResult.data[0]
+
+    // Log audit event for project creation
+    await logAuditEventFromRequest(req, {
+      userId: req.user!.userId,
+      entityType: 'project',
+      entityId: project.id,
+      action: 'create',
+      changes: {
+        name: project.name,
+        organization_id: project.organization_id,
+        ref: project.ref,
+        status: project.status,
+      },
+    })
 
     // Return success response
     return res.status(200).json({

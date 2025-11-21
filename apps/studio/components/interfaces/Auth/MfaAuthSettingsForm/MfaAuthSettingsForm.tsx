@@ -176,7 +176,7 @@ export const MfaAuthSettingsForm = () => {
         })
       }
     }
-  }, [authConfig, isUpdatingTotpForm, isUpdatingPhoneForm, isUpdatingSecurityForm])
+  }, [authConfig, isUpdatingTotpForm, isUpdatingPhoneForm, isUpdatingSecurityForm, totpForm, phoneForm, securityForm])
 
   const onSubmitTotpForm = (values: any) => {
     const { verifyEnabled: MFA_TOTP_VERIFY_ENABLED, enrollEnabled: MFA_TOTP_ENROLL_ENABLED } =

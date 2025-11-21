@@ -92,12 +92,12 @@ export const CreditTopUp = ({ slug }: { slug: string | undefined }) => {
     setCaptchaRef(node)
   }, [])
 
-  const resetCaptcha = () => {
+  const resetCaptcha = useCallback(() => {
     setCaptchaToken(null)
     captchaRef?.resetCaptcha()
-  }
+  }, [captchaRef])
 
-  const initHcaptcha = async () => {
+  const initHcaptcha = useCallback(async () => {
     if (topUpModalVisible && captchaRef) {
       let token = captchaToken
 
@@ -114,11 +114,11 @@ export const CreditTopUp = ({ slug }: { slug: string | undefined }) => {
 
       return token
     }
-  }
+  }, [topUpModalVisible, captchaRef, captchaToken])
 
   useEffect(() => {
     initHcaptcha()
-  }, [topUpModalVisible, captchaRef])
+  }, [initHcaptcha])
 
   const [paymentIntentSecret, setPaymentIntentSecret] = useState('')
   const [paymentIntentConfirmation, setPaymentIntentConfirmation] = useState<PaymentIntentResult>()

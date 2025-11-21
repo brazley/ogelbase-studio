@@ -30,7 +30,7 @@ export const AskAIWidget = ({
       textAreaRef.current?.focus()
       textAreaRef.current?.setSelectionRange(value.length, value.length)
     }, 100)
-  }, [])
+  }, [value.length])
 
   const handleSubmit = useCallback(() => {
     if (value.trim() && !isLoading) {

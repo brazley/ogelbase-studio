@@ -74,7 +74,7 @@ export const TextEditor = <TRow, TSummaryRow = unknown>({
   const cancelChanges = useCallback(() => {
     if (isEditable) onRowChange(row, true)
     setIsPopoverOpen(false)
-  }, [])
+  }, [isEditable, onRowChange, row])
 
   const saveChanges = useCallback(
     (newValue: string | null) => {
@@ -83,7 +83,7 @@ export const TextEditor = <TRow, TSummaryRow = unknown>({
       }
       setIsPopoverOpen(false)
     },
-    [isSuccess]
+    [isEditable, value, onRowChange, row, column.key]
   )
 
   const onSelectExpand = () => {

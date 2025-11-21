@@ -1,12 +1,13 @@
 import { NextApiRequest, NextApiResponse } from 'next'
 
-import apiWrapper from 'lib/api/apiWrapper'
+import apiWrapper, { AuthenticatedRequest } from 'lib/api/apiWrapper'
 import { queryPlatformDatabase, PlatformOrganization } from 'lib/api/platform/database'
-import { PgMetaDatabaseError } from 'lib/api/self-hosted/types'
+import { verifyOrgAccess } from 'lib/api/platform/org-access-control'
 
-export default (req: NextApiRequest, res: NextApiResponse) => apiWrapper(req, res, handler)
+export default (req: NextApiRequest, res: NextApiResponse) =>
+  apiWrapper(req, res, handler, { withAuth: true })
 
-async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: AuthenticatedRequest, res: NextApiResponse) {
   const { method } = req
 
   switch (method) {
@@ -18,27 +19,27 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   }
 }
 
-const handleGet = async (req: NextApiRequest, res: NextApiResponse) => {
+const handleGet = async (req: AuthenticatedRequest, res: NextApiResponse) => {
   const { slug } = req.query
 
   if (!slug || typeof slug !== 'string') {
     return res.status(400).json({ error: { message: 'Organization slug is required' } })
   }
 
-  // If no DATABASE_URL is configured, return default organization for 'org-1'
+  // Check if DATABASE_URL is configured
   if (!process.env.DATABASE_URL) {
-    if (slug === 'org-1') {
-      const defaultOrganization = {
-        id: 1,
-        name: 'Org 1',
-        slug: 'org-1',
-        billing_email: 'admin@org1.com',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      }
-      return res.status(200).json(defaultOrganization)
-    }
-    return res.status(404).json({ error: { message: `Organization with slug '${slug}' not found` } })
+    console.error('Platform database not configured: DATABASE_URL environment variable is missing')
+    return res.status(503).json({
+      error: 'Platform database not configured',
+      code: 'DB_NOT_CONFIGURED',
+      message: 'DATABASE_URL environment variable is missing. Please configure the platform database.',
+    })
+  }
+
+  // Verify user has access to this organization
+  const membership = await verifyOrgAccess(slug, req.user!, res)
+  if (!membership) {
+    return // Response already sent by verifyOrgAccess
   }
 
   const { data, error } = await queryPlatformDatabase<PlatformOrganization>({
@@ -47,23 +48,19 @@ const handleGet = async (req: NextApiRequest, res: NextApiResponse) => {
   })
 
   if (error) {
-    // If database query fails, fall back to default organization for 'org-1'
-    if (slug === 'org-1') {
-      const defaultOrganization = {
-        id: 1,
-        name: 'Org 1',
-        slug: 'org-1',
-        billing_email: 'admin@org1.com',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      }
-      return res.status(200).json(defaultOrganization)
-    }
-    return res.status(404).json({ error: { message: `Organization with slug '${slug}' not found` } })
+    console.error(`Failed to fetch organization '${slug}':`, error)
+    return res.status(500).json({
+      error: 'Failed to fetch organization',
+      code: 'DB_QUERY_FAILED',
+      message: 'Database query failed. Please check server logs for details.',
+      details: error instanceof Error ? error.message : String(error),
+    })
   }
 
   if (!data || data.length === 0) {
-    return res.status(404).json({ error: { message: `Organization with slug '${slug}' not found` } })
+    return res
+      .status(404)
+      .json({ error: { message: `Organization with slug '${slug}' not found` } })
   }
 
   const organization = data[0]

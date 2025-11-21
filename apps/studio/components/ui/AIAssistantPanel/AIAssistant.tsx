@@ -439,8 +439,7 @@ export const AIAssistant = ({ className }: AIAssistantProps) => {
     if (isOpen && isInSQLEditor && !!snippetContent) {
       snap.setSqlSnippets([{ label: 'Current Query', content: snippetContent }])
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeSidebar?.id, isInSQLEditor, snippetContent])
+  }, [activeSidebar?.id, isInSQLEditor, snippetContent, snap])
 
   return (
     <ErrorBoundary

@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Plus, Trash } from 'lucide-react'
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useFieldArray, useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import * as z from 'zod'
@@ -49,7 +49,7 @@ export const AddNewURLModal = ({ visible, allowList, onClose }: AddNewURLModalPr
       .default([]),
   })
 
-  const initialValues = { urls: [{ value: '' }] }
+  const initialValues = useMemo(() => ({ urls: [{ value: '' }] }), [])
   const form = useForm<z.infer<typeof FormSchema>>({
     resolver: zodResolver(FormSchema),
     defaultValues: initialValues,
@@ -85,7 +85,7 @@ export const AddNewURLModal = ({ visible, allowList, onClose }: AddNewURLModalPr
 
   useEffect(() => {
     if (visible) form.reset(initialValues)
-  }, [visible])
+  }, [visible, form, initialValues])
 
   return (
     <Modal

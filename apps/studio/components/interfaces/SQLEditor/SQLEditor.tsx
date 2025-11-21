@@ -216,7 +216,7 @@ export const SQLEditor = () => {
         // [Joshen] No error handler required as this happens in the background and not necessary to ping the user
       }
     },
-    [generateSqlTitle, snapV2]
+    [generateSqlTitle, snapV2, tabs]
   )
 
   const prettifyQuery = useCallback(async () => {
@@ -453,7 +453,7 @@ export const SQLEditor = () => {
     })
     resetPrompt()
     closeDiff()
-  }, [closeDiff, resetPrompt, sendEvent])
+  }, [closeDiff, resetPrompt, sendEvent, ref, org?.slug])
 
   const [isCompletionLoading, setIsCompletionLoading] = useState<boolean>(false)
 

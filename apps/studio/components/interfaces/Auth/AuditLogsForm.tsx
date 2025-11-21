@@ -83,7 +83,7 @@ export const AuditLogsForm = () => {
     if (authConfig) {
       form.reset({ AUDIT_LOG_DISABLE_POSTGRES: authConfig?.AUDIT_LOG_DISABLE_POSTGRES ?? false })
     }
-  }, [authConfig])
+  }, [authConfig, form])
 
   if (isError) {
     return (

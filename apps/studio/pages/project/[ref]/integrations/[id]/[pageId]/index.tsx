@@ -76,7 +76,7 @@ const IntegrationPage: NextPageWithLayout = () => {
     ) {
       router.replace(`/project/${ref}/integrations/${id}/overview`)
     }
-  }, [installation, isIntegrationsLoading, pageId, router])
+  }, [installation, isIntegrationsLoading, pageId, router, id, ref])
 
   // Determine page title, icon, and subtitle based on state
   const pageTitle = integration?.name || 'Integration not found'

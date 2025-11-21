@@ -285,7 +285,8 @@ export const UnifiedLogs = () => {
 
   useEffect(() => {
     debouncedApplyFilterSearch()
-  }, [columnFilters, debouncedApplyFilterSearch])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [columnFilters])
 
   useEffect(() => {
     setSearch({ sort: sorting?.[0] || null })

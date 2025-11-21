@@ -163,7 +163,7 @@ export const useRegisterSidebar = (
     return () => {
       sidebarManagerState.unregisterSidebar(id)
     }
-  }, [id, enabled])
+  }, [id, enabled, componentRef, handlersRef])
 
   useEffect(() => {
     if (!hotKey) return

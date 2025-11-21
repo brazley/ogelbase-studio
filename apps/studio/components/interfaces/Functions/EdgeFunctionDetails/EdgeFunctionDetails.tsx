@@ -167,7 +167,7 @@ export const EdgeFunctionDetails = () => {
         verify_jwt: selectedFunction.verify_jwt,
       })
     }
-  }, [selectedFunction])
+  }, [selectedFunction, form])
 
   return (
     <PageContainer size="full">

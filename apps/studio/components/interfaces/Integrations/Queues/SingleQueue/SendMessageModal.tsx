@@ -68,7 +68,7 @@ export const SendMessageModal = ({ visible, onClose }: SendMessageModalProps) =>
     if (visible) {
       form.reset({ delay: 1, payload: '{}' })
     }
-  }, [visible])
+  }, [visible, form])
 
   return (
     <Modal

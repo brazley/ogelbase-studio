@@ -57,7 +57,7 @@ const SiteUrl = () => {
         SITE_URL: authConfig.SITE_URL || '',
       })
     }
-  }, [authConfig, isUpdatingSiteUrl])
+  }, [authConfig, isUpdatingSiteUrl, siteUrlForm])
 
   const onSubmitSiteUrl = (values: any) => {
     setIsUpdatingSiteUrl(true)

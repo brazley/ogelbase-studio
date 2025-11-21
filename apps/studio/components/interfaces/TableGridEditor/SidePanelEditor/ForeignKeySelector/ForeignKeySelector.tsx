@@ -1,7 +1,7 @@
 import type { PostgresTable } from '@supabase/postgres-meta'
 import { sortBy } from 'lodash'
 import { ArrowRight, Database, HelpCircle, Loader2, Table, X } from 'lucide-react'
-import { Fragment, useEffect, useState } from 'react'
+import { Fragment, useCallback, useEffect, useState } from 'react'
 import {
   AlertDescription_Shadcn_,
   AlertTitle_Shadcn_,
@@ -164,7 +164,7 @@ export const ForeignKeySelector = ({
     }
   }
 
-  const validateType = () => {
+  const validateType = useCallback(() => {
     const typeNotice: any = []
     const typeErrors: any = []
 
@@ -199,18 +199,18 @@ export const ForeignKeySelector = ({
     })
 
     setErrors({ types: typeErrors, typeNotice })
-  }
+  }, [fk.columns, table.columns, selectedTable?.columns])
 
   useEffect(() => {
     if (visible) {
       if (foreignKey !== undefined) setFk(foreignKey)
       else setFk({ ...EMPTY_STATE, id: uuidv4() })
     }
-  }, [visible])
+  }, [visible, foreignKey])
 
   useEffect(() => {
     if (visible) validateType()
-  }, [fk])
+  }, [fk, visible, validateType])
 
   return (
     <SidePanel

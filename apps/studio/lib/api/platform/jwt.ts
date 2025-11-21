@@ -101,10 +101,7 @@ export function generateProjectCredentials(): {
  * @param secret JWT secret used to sign the token
  * @returns Decoded payload if valid, null if invalid
  */
-export function verifySupabaseJWT(
-  token: string,
-  secret: string
-): SupabaseJWTPayload | null {
+export function verifySupabaseJWT(token: string, secret: string): SupabaseJWTPayload | null {
   try {
     const decoded = jwt.verify(token, secret, {
       algorithms: ['HS256'],

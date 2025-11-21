@@ -154,7 +154,7 @@ const SecondStep = ({
     if (outerFactor && factor?.id !== outerFactor.id) {
       setFactor(outerFactor)
     }
-  }, [outerFactor])
+  }, [outerFactor, factor?.id])
 
   return (
     <ConfirmationModal

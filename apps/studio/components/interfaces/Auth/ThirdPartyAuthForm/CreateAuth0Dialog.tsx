@@ -77,7 +77,7 @@ export const CreateAuth0IntegrationDialog = ({
         form.setFocus('auth0DomainName')
       }, 25)
     }
-  }, [visible])
+  }, [visible, form])
 
   const onSubmit: SubmitHandler<z.infer<typeof FormSchema>> = async (values) => {
     createAuthIntegration({

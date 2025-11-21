@@ -82,7 +82,7 @@ export const CreateWorkOSIntegrationDialog = ({
         form.setFocus('issuerURL')
       }, 25)
     }
-  }, [visible])
+  }, [visible, form])
 
   const onSubmit: SubmitHandler<z.infer<typeof FormSchema>> = async (values) => {
     createAuthIntegration({

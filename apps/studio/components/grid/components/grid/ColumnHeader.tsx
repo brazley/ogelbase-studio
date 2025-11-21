@@ -30,7 +30,7 @@ export function ColumnHeader<R>({
     if (snap.gridColumns[columnIdx].key != columnKey) {
       snap.updateColumnIdx(columnKey, columnIdx)
     }
-  }, [columnKey, columnIdx, snap.gridColumns])
+  }, [columnKey, columnIdx, snap.gridColumns, snap])
 
   const [{ isDragging }, drag] = useDrag({
     type: 'column-header',

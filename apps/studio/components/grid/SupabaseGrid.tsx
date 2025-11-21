@@ -78,7 +78,7 @@ export const SupabaseGrid = ({
 
   useEffect(() => {
     if (!mounted) setMounted(true)
-  }, [])
+  }, [mounted])
 
   const rows = data?.rows ?? EMPTY_ARR
 

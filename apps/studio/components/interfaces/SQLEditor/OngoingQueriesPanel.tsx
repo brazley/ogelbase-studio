@@ -65,7 +65,7 @@ export const OngoingQueriesPanel = () => {
       appState.setOnGoingQueriesPanelOpen(true)
       setParams({ viewOngoingQueries: undefined })
     }
-  }, [viewOngoingQueries])
+  }, [viewOngoingQueries, appState, setParams])
 
   const { mutate: abortQuery, isLoading } = useQueryAbortMutation({
     onSuccess: () => {

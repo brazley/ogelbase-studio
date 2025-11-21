@@ -40,13 +40,13 @@ export const BlockKeys = ({
           break
       }
     },
-    [value]
+    [value, onEscape, onEnter]
   )
 
   useEffect(() => {
     if (ignoreOutsideClicks) return
     if (isClickedOutside && onEnter !== undefined) onEnter(value)
-  }, [isClickedOutside])
+  }, [isClickedOutside, ignoreOutsideClicks, onEnter, value])
 
   return (
     <div ref={ref} onKeyDown={handleKeyDown}>

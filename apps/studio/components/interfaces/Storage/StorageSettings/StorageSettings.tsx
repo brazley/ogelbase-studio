@@ -215,7 +215,7 @@ export const StorageSettings = () => {
         imageTransformationEnabled,
       })
     }
-  }, [isSuccess, config])
+  }, [isSuccess, config, form, isFreeTier])
 
   return (
     <ScaffoldSection isFullWidth>

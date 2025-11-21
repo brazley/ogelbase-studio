@@ -95,17 +95,14 @@ export function DataTableFilterCommand({
     for (const filter of currentFiltersToReset) {
       table.getColumn(filter.id)?.setFilterValue(undefined)
     }
-
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [inputValue, open, currentWord])
+  }, [inputValue, open, currentWord, table, columnParser, _filterFields])
 
   useEffect(() => {
     // REMINDER: only update the input value if the command is closed (avoids jumps while open)
     if (!open) {
       setInputValue(columnParser.serialize(columnFilters))
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [columnFilters, filterFields, open])
+  }, [columnFilters, filterFields, open, columnParser])
 
   useEffect(() => {
     if (open) {

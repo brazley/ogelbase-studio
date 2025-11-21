@@ -177,7 +177,7 @@ const AuthPoliciesPage: NextPageWithLayout = () => {
         setShowCreatePolicy(true)
       }
     },
-    [isInlineEditorEnabled, openSidebar, schema]
+    [isInlineEditorEnabled, openSidebar, schema, setEditorPanelInitialPrompt, setEditorPanelTemplates, setEditorPanelValue, setSelectedPolicyIdToEdit, setShowCreatePolicy]
   )
 
   const handleSelectEditPolicy = useCallback(
@@ -201,7 +201,7 @@ const AuthPoliciesPage: NextPageWithLayout = () => {
         setSelectedPolicyIdToEdit(policy.id.toString())
       }
     },
-    [isInlineEditorEnabled, openSidebar]
+    [isInlineEditorEnabled, openSidebar, setEditorPanelInitialPrompt, setEditorPanelTemplates, setEditorPanelValue, setSelectedPolicyIdToEdit]
   )
 
   const handleResetSearch = useCallback(() => setSearchString(''), [setSearchString])

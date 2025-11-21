@@ -221,7 +221,7 @@ export const QueueSettings = ({}: QueueSettingsProps) => {
       }, {})
       setPrivileges(initialState)
     }
-  }, [open, isSuccessPrivileges])
+  }, [open, isSuccessPrivileges, queuePrivileges])
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>

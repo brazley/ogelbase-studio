@@ -231,8 +231,7 @@ export const MarkdownPre = ({
       xKey: xAxis ?? '',
       yKey: yAxis ?? '',
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [snippetProps])
+  }, [snippetProps, isChart, xAxis, yAxis])
 
   if (!codeElement) {
     return <pre className="w-auto overflow-x-auto not-prose my-4">{children}</pre>

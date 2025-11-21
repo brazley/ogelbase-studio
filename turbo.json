@@ -122,9 +122,26 @@
         "AI_PRO_MODEL",
         "AI_NORMAL_MODEL",
         "SUPPORT_SUPABASE_SECRET_KEY",
-        "NEXT_PUBLIC_IS_NIMBUS"
+        "NEXT_PUBLIC_IS_NIMBUS",
+        // Platform/Database related
+        "DB_HOST",
+        "DB_PORT",
+        "DB_NAME",
+        "DB_USER",
+        "JWT_SECRET",
+        "REDIS_URL",
+        "MONGODB_URL",
+        "PLATFORM_DATABASE_URL",
+        // Observability/Logging
+        "LOG_LEVEL",
+        "OTEL_EXPORTER_OTLP_ENDPOINT",
+        "OTEL_EXPORTER_OTLP_HEADERS",
+        // Infrastructure
+        "RAILWAY_REGION",
+        // Session Management
+        "INTERNAL_API_SECRET"
       ],
-      "passThroughEnv": ["CURRENT_CLI_VERSION", "VERCEL_GIT_COMMIT_SHA"],
+      "passThroughEnv": ["CURRENT_CLI_VERSION", "VERCEL_GIT_COMMIT_SHA", "npm_package_version"],
       "outputs": [".next/**", "!.next/cache/**"]
     },
     "www#build": {
@@ -234,7 +251,13 @@
       "cache": false
     },
     "test": {
-      "cache": false
+      "cache": false,
+      "env": [
+        "BASE_URL",
+        "DATABASE_URL",
+        "TEST_REDIS_URL",
+        "TEST_MONGODB_URL"
+      ]
     },
     "typecheck": {
       "dependsOn": ["^typecheck"],

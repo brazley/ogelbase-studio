@@ -17,7 +17,7 @@ const LogoutPage: NextPageWithLayout = () => {
       await router.push('/sign-in')
     }
     logout()
-  }, [])
+  }, [router, signOut])
 
   return (
     <div className="w-full h-screen flex items-center justify-center">

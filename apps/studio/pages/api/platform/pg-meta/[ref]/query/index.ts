@@ -73,7 +73,8 @@ const handlePost = async (req: NextApiRequest, res: NextApiResponse) => {
 
     return res.status(200).json(result)
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to proxy request to Postgres Meta'
+    const message =
+      error instanceof Error ? error.message : 'Failed to proxy request to Postgres Meta'
     return res.status(500).json({ error: { message } })
   }
 }

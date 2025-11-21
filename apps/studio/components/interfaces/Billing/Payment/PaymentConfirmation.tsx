@@ -31,7 +31,7 @@ export const PaymentConfirmation = ({
           onLoadingChange(false)
         })
     }
-  }, [paymentIntentSecret, stripe])
+  }, [paymentIntentSecret, stripe, onLoadingChange, onPaymentIntentConfirm, onError])
 
   return <LoadingLine loading={true} />
 }

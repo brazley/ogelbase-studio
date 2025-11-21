@@ -1,69 +1,52 @@
-#!/usr/bin/env node
+const { readFileSync } = require('fs')
+const { Client } = require('pg')
 
-const { Client } = require('pg');
-const fs = require('fs');
-const path = require('path');
+const connectionString =
+  'postgresql://postgres:sl2i90d6w7lzgejxxqwh3tiwuqxhtl64@postgres.railway.internal:5432/postgres'
 
-async function applyMigration() {
-  const client = new Client({
-    connectionString: 'postgresql://postgres:sl2i90d6w7lzgejxxqwh3tiwuqxhtl64@maglev.proxy.rlwy.net:20105/postgres',
-  });
+async function runMigration() {
+  const client = new Client({ connectionString })
 
   try {
-    await client.connect();
-    console.log('✅ Connected to Railway Postgres\n');
+    console.log('🔌 Connecting...')
+    await client.connect()
+    console.log('✅ Connected!')
 
-    // Read the migration file
-    const migrationPath = path.join(__dirname, 'migrations', '002_platform_billing_schema.sql');
-    const migrationSQL = fs.readFileSync(migrationPath, 'utf8');
+    const sql = readFileSync('./migrations/003_add_multi_database_support.sql', 'utf8')
 
-    console.log('📝 Applying migration: 002_platform_billing_schema.sql...\n');
+    console.log('🚀 Running migration...')
+    await client.query(sql)
+    console.log('✅ Migration complete!')
 
-    // Execute the migration
-    await client.query(migrationSQL);
+    // Insert Railway databases
+    console.log('\n📦 Adding Railway databases...')
 
-    console.log('✅ Migration applied successfully!\n');
+    await client.query(`
+      INSERT INTO platform.databases (project_id, name, type, connection_string, config, status)
+      VALUES 
+        (gen_random_uuid(), 'Railway Redis', 'redis', 
+         'redis://default:UTQjVunMdcoeTkszSCjPeAvXjewOTjAm@redis.railway.internal:6379',
+         '{"tier": "pro"}'::jsonb, 'active'),
+        (gen_random_uuid(), 'Railway MongoDB', 'mongodb',
+         'mongodb://mongo:pedlSLZyLIwXzNSzaGAwTCKLCfgXtoDW@mongodb.railway.internal:27017',
+         '{"tier": "pro"}'::jsonb, 'active')
+      ON CONFLICT DO NOTHING
+    `)
 
-    // Verify tables were created
-    const result = await client.query(`
-      SELECT table_name
-      FROM information_schema.tables
-      WHERE table_schema = 'platform'
-      AND table_name IN (
-        'subscriptions', 'invoices', 'payment_methods', 'tax_ids',
-        'usage_metrics', 'addons', 'customer_profiles', 'credits',
-        'disk_config', 'compute_config'
-      )
-      ORDER BY table_name
-    `);
+    console.log('✅ Databases added!')
 
-    console.log('📊 Tables created:');
-    result.rows.forEach(row => console.log(`   ✓ platform.${row.table_name}`));
-    console.log('');
-
-    // Check if default data was seeded
-    const orgCheck = await client.query(`
-      SELECT COUNT(*) as count FROM platform.subscriptions
-    `);
-    console.log(`💳 Subscriptions seeded: ${orgCheck.rows[0].count}`);
-
-    const diskCheck = await client.query(`
-      SELECT COUNT(*) as count FROM platform.disk_config
-    `);
-    console.log(`💾 Disk configs seeded: ${diskCheck.rows[0].count}`);
-
-    const computeCheck = await client.query(`
-      SELECT COUNT(*) as count FROM platform.compute_config
-    `);
-    console.log(`🖥️  Compute configs seeded: ${computeCheck.rows[0].count}\n`);
-
+    // Show what we created
+    const result = await client.query('SELECT id, name, type, status FROM platform.databases')
+    console.log('\n📊 Configured databases:')
+    result.rows.forEach((row) => {
+      console.log(`  - ${row.name} (${row.type}) [${row.status}] - ID: ${row.id}`)
+    })
   } catch (error) {
-    console.error('❌ Error:', error.message);
-    if (error.detail) console.error('Detail:', error.detail);
-    process.exit(1);
+    console.error('❌ Error:', error.message)
+    process.exit(1)
   } finally {
-    await client.end();
+    await client.end()
   }
 }
 
-applyMigration();
+runMigration()

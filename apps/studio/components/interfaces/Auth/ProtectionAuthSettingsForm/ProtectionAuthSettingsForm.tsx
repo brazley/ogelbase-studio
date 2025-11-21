@@ -133,7 +133,7 @@ export const ProtectionAuthSettingsForm = () => {
         PASSWORD_HIBP_ENABLED: authConfig.PASSWORD_HIBP_ENABLED || false,
       })
     }
-  }, [authConfig, isUpdatingConfig])
+  }, [authConfig, isUpdatingConfig, protectionForm])
 
   const onSubmitProtection = (values: any) => {
     const payload = { ...values }

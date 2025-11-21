@@ -75,8 +75,7 @@ const DatabaseSelector = ({
 
   useEffect(() => {
     if (_selectedDatabaseId) state.setSelectedDatabaseId(_selectedDatabaseId)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [_selectedDatabaseId])
+  }, [_selectedDatabaseId, state])
 
   return (
     <Popover_Shadcn_ open={open} onOpenChange={setOpen} modal={false}>

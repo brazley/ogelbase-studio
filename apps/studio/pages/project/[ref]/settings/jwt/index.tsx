@@ -48,7 +48,7 @@ const JWTKeysLegacyPage: NextPageWithLayout = () => {
     }
 
     previousJwtSecretUpdateStatus.current = jwtSecretUpdateStatus
-  }, [jwtSecretUpdateStatus])
+  }, [jwtSecretUpdateStatus, Failed, Updated, Updating, client, jwtSecretUpdateErrorMessage, projectRef])
 
   if (!projectSettingsLegacyJwtKeys) {
     return <UnknownInterface urlBack={`/project/${projectRef}/settings/jwt/signing-keys`} />

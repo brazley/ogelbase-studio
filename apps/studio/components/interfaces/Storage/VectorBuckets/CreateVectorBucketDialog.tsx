@@ -138,7 +138,7 @@ export const CreateVectorBucketDialog = () => {
 
   useEffect(() => {
     if (!visible) form.reset()
-  }, [visible])
+  }, [visible, form])
 
   return (
     <Dialog open={visible} onOpenChange={setVisible}>

@@ -73,5 +73,9 @@
     "database",
     "auth"
   ],
-  "packageManager": "pnpm@10.18.0"
+  "dependencies": {
+    "@opentelemetry/resources": "^2.2.0",
+    "@opentelemetry/sdk-trace-node": "^2.2.0",
+    "@opentelemetry/semantic-conventions": "^1.38.0"
+  }
 }

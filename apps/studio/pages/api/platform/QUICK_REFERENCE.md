@@ -1,6 +1,7 @@
 # Platform API Endpoints - Quick Reference
 
 ## Summary
+
 All missing platform API endpoints have been created and existing stubs have been updated with real database queries and proper fallback logic.
 
 ## What Was Done
@@ -8,35 +9,44 @@ All missing platform API endpoints have been created and existing stubs have bee
 ### NEW Endpoints Created (9 files)
 
 #### Organization Endpoints
+
 1. **`/api/platform/organizations/[slug]/billing/plans`** (GET)
+
    - Returns billing plans (Free, Pro, Team, Enterprise)
 
 2. **`/api/platform/organizations/[slug]/payments`** (GET, POST, PUT, DELETE)
+
    - List payment methods
    - Add payment method
    - Set default payment method
    - Remove payment method
 
 3. **`/api/platform/organizations/[slug]/tax-ids`** (GET, PUT, DELETE)
+
    - List tax IDs
    - Add tax ID
    - Remove tax ID
 
 4. **`/api/platform/organizations/[slug]/free-project-limit`** (GET)
+
    - Returns free tier limits: {limit: 2, used: X, remaining: Y}
 
 5. **`/api/platform/organizations/[slug]/usage`** (GET)
    - Returns org-wide usage metrics
 
 #### Project Endpoints
+
 6. **`/api/platform/projects/[ref]/disk`** (GET, POST)
+
    - Get disk config: {size_gb: 8, io_budget: 2400, status: 'active'}
    - Update disk size
 
 7. **`/api/platform/projects/[ref]/disk/util`** (GET)
+
    - Get disk utilization: {used_gb, total_gb, percent}
 
 8. **`/api/platform/projects/[ref]/disk/custom-config`** (GET, POST)
+
    - Get/set auto-scale config: {enabled: false, limit_gb: 8}
 
 9. **`/api/platform/projects/[ref]/compute`** (GET, POST)
@@ -45,11 +55,13 @@ All missing platform API endpoints have been created and existing stubs have bee
 ### UPDATED Endpoints (3 files)
 
 1. **`/api/platform/organizations/[slug]/billing/subscription`**
+
    - Added DATABASE_URL check
    - Added real database queries
    - Falls back to Enterprise plan
 
 2. **`/api/platform/projects/[ref]/billing/addons`**
+
    - Added DATABASE_URL check
    - Added real database queries
    - Returns default available add-ons
@@ -111,6 +123,7 @@ curl http://localhost:3000/api/platform/projects/default/compute
 ## File Locations
 
 All endpoints are in:
+
 - `/apps/studio/pages/api/platform/organizations/[slug]/`
 - `/apps/studio/pages/api/platform/projects/[ref]/`
 

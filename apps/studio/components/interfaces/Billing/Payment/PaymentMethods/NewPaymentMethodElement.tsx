@@ -225,7 +225,7 @@ export const NewPaymentMethodElement = forwardRef(
           name: customerName,
         },
       }),
-      [purchasingAsBusiness]
+      [purchasingAsBusiness, currentAddress, customerName]
     )
 
     // Preselect tax id if there is no more than 2 available tax ids (even if there are two options, first one in the list is likely to be it)
@@ -236,7 +236,7 @@ export const NewPaymentMethodElement = forwardRef(
         form.setValue('tax_id_value', '')
         form.setValue('tax_id_name', taxIdOption.name)
       }
-    }, [availableTaxIds, stripeAddress])
+    }, [availableTaxIds, stripeAddress, currentTaxId, form])
 
     return (
       <div className="space-y-2">

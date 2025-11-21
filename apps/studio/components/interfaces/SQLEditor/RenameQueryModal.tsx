@@ -123,7 +123,7 @@ const RenameQueryModal = ({
   useEffect(() => {
     setNameInput(name)
     setDescriptionInput(description)
-  }, [snippet.id])
+  }, [snippet.id, name, description])
 
   return (
     <Modal visible={visible} onCancel={onCancel} hideFooter header="Rename" size="small">

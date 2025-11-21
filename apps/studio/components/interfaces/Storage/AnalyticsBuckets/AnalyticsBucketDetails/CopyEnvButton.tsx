@@ -37,7 +37,7 @@ export const CopyEnvButton = ({
       toast.success('Copied to clipboard as environment variables')
       setIsLoading(false)
     })
-  }, [serverOptions, values])
+  }, [serverOptions, values, project?.ref, project?.connectionString])
 
   return (
     <Button type="default" loading={isLoading} icon={<Copy />} onClick={onCopy}>

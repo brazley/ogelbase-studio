@@ -116,7 +116,7 @@ export const SessionsAuthSettingsForm = () => {
         })
       }
     }
-  }, [authConfig, isUpdatingRefreshTokens, isUpdatingUserSessions])
+  }, [authConfig, isUpdatingRefreshTokens, isUpdatingUserSessions, refreshTokenForm, userSessionsForm])
 
   const onSubmitRefreshTokens = (values: any) => {
     const payload = { ...values }

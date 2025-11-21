@@ -1,11 +1,13 @@
 import { NextApiRequest, NextApiResponse } from 'next'
 
-import apiWrapper from 'lib/api/apiWrapper'
+import apiWrapper, { AuthenticatedRequest } from 'lib/api/apiWrapper'
 import { queryPlatformDatabase } from 'lib/api/platform/database'
+import { verifyOrgAccess, requireRole } from 'lib/api/platform/org-access-control'
 
-export default (req: NextApiRequest, res: NextApiResponse) => apiWrapper(req, res, handler)
+export default (req: NextApiRequest, res: NextApiResponse) =>
+  apiWrapper(req, res, handler, { withAuth: true })
 
-async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: AuthenticatedRequest, res: NextApiResponse) {
   const { method } = req
 
   switch (method) {
@@ -29,12 +31,22 @@ interface TaxId {
   created_at: string
 }
 
-// GET - List tax IDs
-const handleGet = async (req: NextApiRequest, res: NextApiResponse) => {
+// GET - List tax IDs (admin or owner only)
+const handleGet = async (req: AuthenticatedRequest, res: NextApiResponse) => {
   const { slug } = req.query
 
   if (!slug || typeof slug !== 'string') {
     return res.status(400).json({ error: { message: 'Organization slug is required' } })
+  }
+
+  // Verify user has access and admin role
+  const membership = await verifyOrgAccess(slug, req.user!, res)
+  if (!membership) {
+    return // Response already sent by verifyOrgAccess
+  }
+
+  if (!requireRole(membership, 'admin', res)) {
+    return // Response already sent by requireRole
   }
 
   // If no DATABASE_URL is configured, return empty array
@@ -61,8 +73,8 @@ const handleGet = async (req: NextApiRequest, res: NextApiResponse) => {
   return res.status(200).json(data || [])
 }
 
-// PUT - Add tax ID
-const handlePut = async (req: NextApiRequest, res: NextApiResponse) => {
+// PUT - Add tax ID (owner only)
+const handlePut = async (req: AuthenticatedRequest, res: NextApiResponse) => {
   const { slug } = req.query
   const { type, value, country } = req.body
 
@@ -72,6 +84,16 @@ const handlePut = async (req: NextApiRequest, res: NextApiResponse) => {
 
   if (!type || !value) {
     return res.status(400).json({ error: { message: 'Tax ID type and value are required' } })
+  }
+
+  // Verify user has access and owner role
+  const membership = await verifyOrgAccess(slug, req.user!, res)
+  if (!membership) {
+    return // Response already sent by verifyOrgAccess
+  }
+
+  if (!requireRole(membership, 'owner', res)) {
+    return // Response already sent by requireRole
   }
 
   // If no DATABASE_URL is configured, return mock response
@@ -102,8 +124,8 @@ const handlePut = async (req: NextApiRequest, res: NextApiResponse) => {
   return res.status(200).json(data?.[0] || {})
 }
 
-// DELETE - Remove tax ID
-const handleDelete = async (req: NextApiRequest, res: NextApiResponse) => {
+// DELETE - Remove tax ID (owner only)
+const handleDelete = async (req: AuthenticatedRequest, res: NextApiResponse) => {
   const { slug } = req.query
   const { tax_id } = req.body
 
@@ -113,6 +135,16 @@ const handleDelete = async (req: NextApiRequest, res: NextApiResponse) => {
 
   if (!tax_id) {
     return res.status(400).json({ error: { message: 'tax_id is required' } })
+  }
+
+  // Verify user has access and owner role
+  const membership = await verifyOrgAccess(slug, req.user!, res)
+  if (!membership) {
+    return // Response already sent by verifyOrgAccess
+  }
+
+  if (!requireRole(membership, 'owner', res)) {
+    return // Response already sent by requireRole
   }
 
   // If no DATABASE_URL is configured, return success

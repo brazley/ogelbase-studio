@@ -25,39 +25,50 @@ const Wizard: NextPageWithLayout = () => {
     setCaptchaRef(node)
   }, [])
 
-  const initSetupIntent = async (hcaptchaToken: string | undefined) => {
-    if (!hcaptchaToken) return console.error('Hcaptcha token is required')
+  const resetCaptcha = useCallback(() => {
+    setCaptchaToken(null)
+    captchaRef?.resetCaptcha()
+  }, [captchaRef])
 
-    // Force a reload of Elements, necessary for Stripe
-    // Also mitigates card testing to some extent as we generate a new captcha token
-    setIntent(undefined)
-    setupIntent({ hcaptchaToken })
-  }
+  const initSetupIntent = useCallback(
+    async (hcaptchaToken: string | undefined) => {
+      if (!hcaptchaToken) return console.error('Hcaptcha token is required')
 
-  const loadPaymentForm = async (force = false) => {
-    if (selectedPlan == null || selectedPlan === 'FREE') return
-    if (intent != null && !force) return
+      // Force a reload of Elements, necessary for Stripe
+      // Also mitigates card testing to some extent as we generate a new captcha token
+      setIntent(undefined)
+      setupIntent({ hcaptchaToken })
+    },
+    [setupIntent]
+  )
 
-    if (captchaRef) {
-      let token = captchaToken
+  const loadPaymentForm = useCallback(
+    async (force = false) => {
+      if (selectedPlan == null || selectedPlan === 'FREE') return
+      if (intent != null && !force) return
 
-      try {
-        if (!token) {
-          const captchaResponse = await captchaRef.execute({ async: true })
-          token = captchaResponse?.response ?? null
+      if (captchaRef) {
+        let token = captchaToken
+
+        try {
+          if (!token) {
+            const captchaResponse = await captchaRef.execute({ async: true })
+            token = captchaResponse?.response ?? null
+          }
+        } catch (error) {
+          return
         }
-      } catch (error) {
-        return
-      }
 
-      await initSetupIntent(token ?? undefined)
-      resetCaptcha()
-    }
-  }
+        await initSetupIntent(token ?? undefined)
+        resetCaptcha()
+      }
+    },
+    [selectedPlan, intent, captchaRef, captchaToken, initSetupIntent, resetCaptcha]
+  )
 
   useEffect(() => {
     loadPaymentForm()
-  }, [captchaRef, selectedPlan])
+  }, [captchaRef, selectedPlan, loadPaymentForm])
 
   const resetSetupIntent = () => {
     setIntent(undefined)
@@ -66,11 +77,6 @@ const Wizard: NextPageWithLayout = () => {
 
   const onLocalCancel = () => {
     setIntent(undefined)
-  }
-
-  const resetCaptcha = () => {
-    setCaptchaToken(null)
-    captchaRef?.resetCaptcha()
   }
 
   return (

@@ -1,5 +1,5 @@
 import { editor } from 'monaco-editor'
-import { PropsWithChildren, useEffect, useMemo, useRef } from 'react'
+import { PropsWithChildren, useCallback, useEffect, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
 
 export interface InlineWidgetProps {
@@ -56,7 +56,7 @@ const InlineWidget = ({
   // Get the appropriate editor instance for diff editor
   const targetEditor = 'getModifiedEditor' in editor ? editor.getModifiedEditor() : editor
 
-  const recalculateLayout = () => {
+  const recalculateLayout = useCallback(() => {
     const layoutInfo = targetEditor.getLayoutInfo()
 
     if (!layoutInfo) {
@@ -67,9 +67,9 @@ const InlineWidget = ({
     containerElement.style.top = `${viewZoneRef.current.top}px`
     containerElement.style.width = `${layoutInfo.width - layoutInfo.contentLeft - 20}px`
     containerElement.style.height = `${viewZoneRef.current.height}px`
-  }
+  }, [targetEditor, containerElement])
 
-  const createViewZone = () => {
+  const createViewZone = useCallback(() => {
     targetEditor.changeViewZones((accessor) => {
       // Remove existing zone if it exists
       if (zoneIdRef.current) {
@@ -91,7 +91,7 @@ const InlineWidget = ({
         },
       })
     })
-  }
+  }, [targetEditor, beforeLineNumber, afterLineNumber, recalculateLayout])
 
   // Initial setup of view zone and overlay widget
   useEffect(() => {
@@ -113,7 +113,7 @@ const InlineWidget = ({
         targetEditor.removeOverlayWidget(overlayWidget)
       })
     }
-  }, [targetEditor, id, beforeLineNumber, afterLineNumber]) // Note: heightInLines removed from deps
+  }, [targetEditor, id, beforeLineNumber, afterLineNumber, containerElement, createViewZone]) // Note: heightInLines removed from deps
 
   // Update view zone height when heightInLines changes
   useEffect(() => {
@@ -121,7 +121,7 @@ const InlineWidget = ({
       viewZoneRef.current.heightInLines = heightInLines
       createViewZone()
     }
-  }, [heightInLines])
+  }, [heightInLines, createViewZone])
 
   return createPortal(children, containerElement, key)
 }

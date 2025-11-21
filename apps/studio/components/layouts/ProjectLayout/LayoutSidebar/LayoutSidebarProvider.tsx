@@ -40,7 +40,7 @@ export const LayoutSidebarProvider = ({ children }: PropsWithChildren) => {
         },
       })
     }
-  }, [activeSidebar])
+  }, [activeSidebar, project, org, sendEvent])
 
   // Handle sidebar URL parameter
   useEffect(() => {

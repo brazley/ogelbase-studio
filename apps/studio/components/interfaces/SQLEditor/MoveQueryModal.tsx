@@ -183,7 +183,7 @@ export const MoveQueryModal = ({ visible, snippets = [], onClose }: MoveQueryMod
       }
       form.reset({ name: '' })
     }
-  }, [visible, snippets])
+  }, [visible, snippets, form])
 
   return (
     <Dialog open={visible} onOpenChange={() => onClose()}>

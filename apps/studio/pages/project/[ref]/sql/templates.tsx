@@ -28,7 +28,7 @@ const SqlTemplates: NextPageWithLayout = () => {
         name: 'templates',
       },
     })
-  }, [router.isReady, ref])
+  }, [router.isReady, ref, tabs])
 
   return <SQLTemplates />
 }

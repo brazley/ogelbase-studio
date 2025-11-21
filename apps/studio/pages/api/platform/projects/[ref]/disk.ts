@@ -2,6 +2,7 @@ import { NextApiRequest, NextApiResponse } from 'next'
 
 import apiWrapper from 'lib/api/apiWrapper'
 import { queryPlatformDatabase } from 'lib/api/platform/database'
+import { authenticateAndVerifyProjectAccess, getClientIp, getUserAgent, logAuditEvent } from 'lib/api/platform/project-access'
 
 export default (req: NextApiRequest, res: NextApiResponse) => apiWrapper(req, res, handler)
 
@@ -33,11 +34,12 @@ const DEFAULT_DISK_CONFIG: DiskConfig = {
 
 // GET - Get disk configuration
 const handleGet = async (req: NextApiRequest, res: NextApiResponse) => {
-  const { ref } = req.query
+  // Authenticate and verify access (any member can view)
+  const result = await authenticateAndVerifyProjectAccess(req, res)
+  if (!result) return // Response already sent
 
-  if (!ref || typeof ref !== 'string') {
-    return res.status(400).json({ error: { message: 'Project ref is required' } })
-  }
+  const { access } = result
+  const { ref } = req.query
 
   // If no DATABASE_URL is configured, return default disk config
   if (!process.env.DATABASE_URL) {
@@ -67,12 +69,12 @@ const handleGet = async (req: NextApiRequest, res: NextApiResponse) => {
 
 // POST - Update disk size
 const handlePost = async (req: NextApiRequest, res: NextApiResponse) => {
-  const { ref } = req.query
-  const { size_gb } = req.body
+  // Authenticate and verify access (admin or owner can update)
+  const result = await authenticateAndVerifyProjectAccess(req, res, 'admin')
+  if (!result) return // Response already sent
 
-  if (!ref || typeof ref !== 'string') {
-    return res.status(400).json({ error: { message: 'Project ref is required' } })
-  }
+  const { user, access } = result
+  const { size_gb } = req.body
 
   if (!size_gb || typeof size_gb !== 'number') {
     return res.status(400).json({ error: { message: 'size_gb is required and must be a number' } })
@@ -99,18 +101,31 @@ const handlePost = async (req: NextApiRequest, res: NextApiResponse) => {
       SET disk_size_gb = $2,
           disk_io_budget = $2 * 300,
           updated_at = NOW()
-      WHERE ref = $1
+      WHERE id = $1
       RETURNING
         disk_size_gb as size_gb,
         disk_io_budget as io_budget,
         'modifying' as status
     `,
-    parameters: [ref, size_gb],
+    parameters: [access.project.id, size_gb],
   })
 
   if (error) {
     return res.status(500).json({ error: { message: 'Failed to update disk size' } })
   }
 
-  return res.status(200).json(data?.[0] || { size_gb, io_budget: size_gb * 300, status: 'modifying' })
+  // Log audit event
+  await logAuditEvent({
+    userId: user.userId,
+    entityType: 'project',
+    entityId: access.project.id,
+    action: 'disk.update',
+    changes: { size_gb, io_budget: size_gb * 300 },
+    ipAddress: getClientIp(req),
+    userAgent: getUserAgent(req),
+  })
+
+  return res
+    .status(200)
+    .json(data?.[0] || { size_gb, io_budget: size_gb * 300, status: 'modifying' })
 }

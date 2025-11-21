@@ -1,11 +1,13 @@
 import { NextApiRequest, NextApiResponse } from 'next'
 
 import { paths } from 'api-types'
-import apiWrapper from 'lib/api/apiWrapper'
+import apiWrapper, { AuthenticatedRequest } from 'lib/api/apiWrapper'
+import { verifyOrgAccess } from 'lib/api/platform/org-access-control'
 
-export default (req: NextApiRequest, res: NextApiResponse) => apiWrapper(req, res, handler)
+export default (req: NextApiRequest, res: NextApiResponse) =>
+  apiWrapper(req, res, handler, { withAuth: true })
 
-async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: AuthenticatedRequest, res: NextApiResponse) {
   const { method } = req
 
   switch (method) {
@@ -20,11 +22,32 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 type ResponseData =
   paths['/platform/organizations/{slug}/billing/subscription']['get']['responses']['200']['content']['application/json']
 
-const handleGet = async (req: NextApiRequest, res: NextApiResponse<ResponseData>) => {
+type SubscriptionRow = {
+  billing_cycle_anchor: number
+  current_period_end: number
+  current_period_start: number
+  next_invoice_at: number
+  usage_billing_enabled: boolean
+  plan_id: string
+  plan_name: string
+  payment_method_type: string
+  billing_via_partner: boolean
+  billing_partner: string
+  customer_balance: number
+  cached_egress_enabled: boolean
+}
+
+const handleGet = async (req: AuthenticatedRequest, res: NextApiResponse<ResponseData>) => {
   const { slug } = req.query
 
   if (!slug || typeof slug !== 'string') {
     return res.status(400).json({ error: { message: 'Organization slug is required' } } as any)
+  }
+
+  // Verify user has access to this organization
+  const membership = await verifyOrgAccess(slug, req.user!, res)
+  if (!membership) {
+    return // Response already sent by verifyOrgAccess
   }
 
   const defaultResponse: ResponseData = {
@@ -56,7 +79,7 @@ const handleGet = async (req: NextApiRequest, res: NextApiResponse<ResponseData>
   const { queryPlatformDatabase } = await import('lib/api/platform/database')
 
   // Try to query platform database for subscription
-  const { data, error } = await queryPlatformDatabase({
+  const { data, error } = await queryPlatformDatabase<SubscriptionRow>({
     query: `
       SELECT
         s.billing_cycle_anchor,
@@ -91,14 +114,14 @@ const handleGet = async (req: NextApiRequest, res: NextApiResponse<ResponseData>
     next_invoice_at: subscription.next_invoice_at || 0,
     usage_billing_enabled: subscription.usage_billing_enabled || false,
     plan: {
-      id: subscription.plan_id || 'enterprise',
+      id: (subscription.plan_id || 'enterprise') as 'free' | 'pro' | 'team' | 'enterprise',
       name: subscription.plan_name || 'Enterprise',
     },
     addons: [],
     project_addons: [],
     payment_method_type: subscription.payment_method_type || '',
     billing_via_partner: subscription.billing_via_partner || false,
-    billing_partner: subscription.billing_partner || 'fly',
+    billing_partner: (subscription.billing_partner || 'fly') as 'fly' | 'aws_marketplace' | 'vercel_marketplace',
     scheduled_plan_change: null,
     customer_balance: subscription.customer_balance || 0,
     cached_egress_enabled: subscription.cached_egress_enabled || false,

@@ -121,8 +121,7 @@ export const OrganizationProjectSelector = ({
     if (!isLoadingProjects && isSuccessProjects) {
       onInitialLoad?.(projects)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoadingProjects, isSuccessProjects])
+  }, [isLoadingProjects, isSuccessProjects, onInitialLoad, projects])
 
   return (
     <Popover_Shadcn_ open={open} onOpenChange={setOpen} modal={false}>

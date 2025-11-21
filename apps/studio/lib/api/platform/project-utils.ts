@@ -89,7 +89,10 @@ export function validateDatabaseConnection(
  * @param required Whether the URL is required
  * @returns Object with isValid boolean and optional error message
  */
-export function validateURL(url: string, required: boolean = true): { isValid: boolean; error?: string } {
+export function validateURL(
+  url: string,
+  required: boolean = true
+): { isValid: boolean; error?: string } {
   if (!url || url.trim().length === 0) {
     if (required) {
       return { isValid: false, error: 'URL is required' }
