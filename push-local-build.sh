@@ -26,10 +26,27 @@ echo -e "${BLUE}========================================${NC}"
 echo -e "\n${YELLOW}Step 1: Verifying local image...${NC}"
 if ! docker image inspect "$LOCAL_IMAGE" &>/dev/null; then
     echo "❌ Error: Local image '$LOCAL_IMAGE' not found"
-    echo "Run: docker build -f apps/studio/Dockerfile -t studio-platform:latest ."
+    echo ""
+    echo "CRITICAL: Must build for linux/amd64 (Railway runs on x86_64)"
+    echo "Run: docker buildx build --platform linux/amd64 -f apps/studio/Dockerfile -t studio-platform:latest --load ."
+    echo ""
+    echo "Building on arm64 (Apple Silicon) without --platform flag will cause 'Exec format error' on Railway"
     exit 1
 fi
 echo -e "${GREEN}✓ Local image found${NC}"
+
+# Step 1.5: Verify image platform
+echo -e "\n${YELLOW}Step 1.5: Verifying image platform...${NC}"
+PLATFORM=$(docker image inspect "$LOCAL_IMAGE" --format='{{.Architecture}}')
+if [ "$PLATFORM" != "amd64" ]; then
+    echo "❌ Error: Image is built for $PLATFORM architecture"
+    echo "Railway requires linux/amd64 (x86_64)"
+    echo ""
+    echo "Rebuild with:"
+    echo "docker buildx build --platform linux/amd64 -f apps/studio/Dockerfile -t studio-platform:latest --load ."
+    exit 1
+fi
+echo -e "${GREEN}✓ Image is amd64 (correct for Railway)${NC}"
 
 # Step 2: Check GitHub CLI authentication
 echo -e "\n${YELLOW}Step 2: Checking GitHub authentication...${NC}"

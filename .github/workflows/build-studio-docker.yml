@@ -68,6 +68,9 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          # CRITICAL: Must be linux/amd64 for Railway deployment
+          # Railway runs on x86_64 architecture, not arm64
+          # Building on arm64 (Apple Silicon) will cause "Exec format error"
           platforms: linux/amd64
 
       - name: Output image URL

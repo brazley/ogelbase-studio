@@ -14,18 +14,33 @@ echo -e "${BLUE}========================================${NC}"
 echo -e "${BLUE}  Staged Commit Strategy${NC}"
 echo -e "${BLUE}========================================${NC}"
 
+echo -e "\n${YELLOW}Why staged commits instead of one big commit?${NC}"
+echo "✅ Easier code review - reviewers can understand changes in context"
+echo "✅ Better git history - each commit has a clear purpose"
+echo "✅ Easier rollback - can revert specific changes without affecting others"
+echo "✅ CI/CD clarity - see which change triggered which build"
+echo ""
+
 # Show current status
 echo -e "\n${YELLOW}Current Git Status:${NC}"
 git status --short
 
-echo -e "\n${YELLOW}Commit Strategy:${NC}"
-echo "1. Build configuration (package.json)"
-echo "2. CI/CD workflow (.github/workflows)"
-echo "3. Environment configs (docker, apps/studio)"
-echo "4. Documentation files"
+echo -e "\n${YELLOW}4-Part Commit Strategy:${NC}"
+echo -e "${GREEN}1. Build configuration${NC} (package.json, pnpm-lock.yaml)"
+echo "   Why: Dependencies and build tools - foundation for everything else"
+echo ""
+echo -e "${GREEN}2. CI/CD workflow${NC} (.github/workflows/build-studio-docker.yml)"
+echo "   Why: Deployment automation - how code gets to production"
+echo "   ⚠️  CRITICAL: Must build for linux/amd64 (Railway requirement)"
+echo ""
+echo -e "${GREEN}3. Environment configs${NC} (docker/.env, apps/studio/.env, docker-compose.yml)"
+echo "   Why: Runtime configuration - how the app runs in different environments"
+echo ""
+echo -e "${GREEN}4. Documentation${NC} (*.md deployment guides)"
+echo "   Why: Knowledge transfer - helps future you and teammates"
 echo ""
 
-read -p "Proceed with staged commits? (y/n) " -n 1 -r
+read -p "Proceed with 4-part staged commits? (y/n) " -n 1 -r
 echo
 if [[ ! $REPLY =~ ^[Yy]$ ]]; then
     echo "Aborted."
