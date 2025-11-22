@@ -1,0 +1,299 @@
+/**
+ * Session Cache Unit Tests
+ *
+ * Tests for the SessionCache class and session caching functionality.
+ * Covers cache hits/misses, session validation, invalidation, and metrics.
+ */
+
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { sessionCache, validateSessionWithCache } from '../../../lib/api/auth/session-cache'
+import type { SessionWithUser } from '../../../lib/api/auth/session'
+
+// Mock the validateSession function
+vi.mock('../../../lib/api/auth/session', () => ({
+  validateSession: vi.fn(),
+  revokeSession: vi.fn(),
+  revokeAllUserSessions: vi.fn(),
+}))
+
+describe('Session Cache', () => {
+  // Sample session data
+  const createTestSession = (overrides?: Partial<SessionWithUser>): SessionWithUser => ({
+    id: 'session-123',
+    userId: 'user-456',
+    token: 'token-abc-def-ghi-jkl-mno',
+    expiresAt: new Date(Date.now() + 3600000).toISOString(), // 1 hour from now
+    lastActivityAt: new Date().toISOString(),
+    ipAddress: '127.0.0.1',
+    userAgent: 'test-agent',
+    createdAt: new Date().toISOString(),
+    email: 'test@example.com',
+    firstName: 'Test',
+    lastName: 'User',
+    username: 'testuser',
+    ...overrides,
+  })
+
+  beforeEach(async () => {
+    // Reset environment
+    process.env.REDIS_URL = 'redis://localhost:6379'
+
+    // Reset metrics
+    sessionCache.resetMetrics()
+
+    // Clear any existing cache
+    vi.clearAllMocks()
+  })
+
+  afterEach(async () => {
+    // Cleanup
+    await sessionCache.close()
+  })
+
+  describe('Cache Hit Flow', () => {
+    it('should cache session on first validation', async () => {
+      // Arrange
+      const testSession = createTestSession()
+      const { validateSession } = await import('../../../lib/api/auth/session')
+      vi.mocked(validateSession).mockResolvedValue(testSession)
+
+      // Act - First call (cache miss, should query DB)
+      const result1 = await validateSessionWithCache(testSession.token)
+
+      // Assert - Session should be returned
+      expect(result1).toEqual(testSession)
+      expect(validateSession).toHaveBeenCalledTimes(1)
+    })
+
+    it('should return cached session on subsequent calls', async () => {
+      // Arrange
+      const testSession = createTestSession()
+      const { validateSession } = await import('../../../lib/api/auth/session')
+      vi.mocked(validateSession).mockResolvedValue(testSession)
+
+      // Act - First call (cache miss)
+      await validateSessionWithCache(testSession.token)
+
+      // Second call (should be cache hit)
+      const result2 = await validateSessionWithCache(testSession.token)
+
+      // Assert - Second call should NOT query database
+      expect(result2).toEqual(testSession)
+      expect(validateSession).toHaveBeenCalledTimes(1) // Only called once
+    })
+
+    it('should track cache hit rate correctly', async () => {
+      // Arrange
+      const testSession = createTestSession()
+      const { validateSession } = await import('../../../lib/api/auth/session')
+      vi.mocked(validateSession).mockResolvedValue(testSession)
+
+      // Act - First call (miss), then 3 hits
+      await validateSessionWithCache(testSession.token)
+      await validateSessionWithCache(testSession.token)
+      await validateSessionWithCache(testSession.token)
+      await validateSessionWithCache(testSession.token)
+
+      const metrics = sessionCache.getMetrics()
+
+      // Assert - Should show high hit rate (3 hits, 1 miss = 75%)
+      expect(metrics.hits).toBe(3)
+      expect(metrics.misses).toBe(1)
+      expect(metrics.total).toBe(4)
+      expect(metrics.hitRate).toBeCloseTo(75, 0)
+    })
+  })
+
+  describe('Cache Miss Flow', () => {
+    it('should fallback to database on cache miss', async () => {
+      // Arrange
+      const testSession = createTestSession()
+      const { validateSession } = await import('../../../lib/api/auth/session')
+      vi.mocked(validateSession).mockResolvedValue(testSession)
+
+      // Act - Call with a token that's not cached
+      const result = await validateSessionWithCache(testSession.token)
+
+      // Assert
+      expect(result).toEqual(testSession)
+      expect(validateSession).toHaveBeenCalledWith(testSession.token)
+    })
+
+    it('should return null for invalid session', async () => {
+      // Arrange
+      const { validateSession } = await import('../../../lib/api/auth/session')
+      vi.mocked(validateSession).mockResolvedValue(null)
+
+      // Act
+      const result = await validateSessionWithCache('invalid-token')
+
+      // Assert
+      expect(result).toBeNull()
+      expect(validateSession).toHaveBeenCalledWith('invalid-token')
+    })
+
+    it('should not cache invalid sessions', async () => {
+      // Arrange
+      const { validateSession } = await import('../../../lib/api/auth/session')
+      vi.mocked(validateSession).mockResolvedValue(null)
+
+      // Act - Two calls with invalid token
+      await validateSessionWithCache('invalid-token')
+      await validateSessionWithCache('invalid-token')
+
+      // Assert - Both should query database (no cache)
+      expect(validateSession).toHaveBeenCalledTimes(2)
+    })
+  })
+
+  describe('Cache Invalidation', () => {
+    it('should invalidate session from cache', async () => {
+      // Arrange
+      const testSession = createTestSession()
+      const { validateSession } = await import('../../../lib/api/auth/session')
+      vi.mocked(validateSession).mockResolvedValue(testSession)
+
+      // Cache the session
+      await validateSessionWithCache(testSession.token)
+
+      // Act - Invalidate
+      await sessionCache.invalidateSession(testSession.token)
+
+      // Next call should be cache miss
+      await validateSessionWithCache(testSession.token)
+
+      // Assert - Database queried twice (initial + after invalidation)
+      expect(validateSession).toHaveBeenCalledTimes(2)
+    })
+
+    it('should invalidate all sessions for a user', async () => {
+      // Arrange
+      const userId = 'user-456'
+      const session1 = createTestSession({
+        token: 'token-1',
+        userId,
+      })
+      const session2 = createTestSession({
+        token: 'token-2',
+        userId,
+      })
+
+      const { validateSession } = await import('../../../lib/api/auth/session')
+      vi.mocked(validateSession)
+        .mockResolvedValueOnce(session1)
+        .mockResolvedValueOnce(session2)
+
+      // Cache both sessions
+      await validateSessionWithCache(session1.token)
+      await validateSessionWithCache(session2.token)
+
+      // Act - Invalidate all user sessions
+      await sessionCache.invalidateUserSessions(userId)
+
+      // Next calls should be cache misses
+      vi.mocked(validateSession)
+        .mockResolvedValueOnce(session1)
+        .mockResolvedValueOnce(session2)
+
+      await validateSessionWithCache(session1.token)
+      await validateSessionWithCache(session2.token)
+
+      // Assert - Database queried 4 times total (2 initial + 2 after invalidation)
+      expect(validateSession).toHaveBeenCalledTimes(4)
+    })
+
+    it('should track invalidation metrics', async () => {
+      // Arrange
+      const testSession = createTestSession()
+      const { validateSession } = await import('../../../lib/api/auth/session')
+      vi.mocked(validateSession).mockResolvedValue(testSession)
+
+      await validateSessionWithCache(testSession.token)
+
+      // Act
+      await sessionCache.invalidateSession(testSession.token)
+      const metrics = sessionCache.getMetrics()
+
+      // Assert
+      expect(metrics.invalidations).toBeGreaterThan(0)
+    })
+  })
+
+  describe('Session Expiration', () => {
+    it('should respect TTL for cached sessions', async () => {
+      // Arrange
+      const expiredSession = createTestSession({
+        expiresAt: new Date(Date.now() - 1000).toISOString(), // Already expired
+      })
+
+      const { validateSession } = await import('../../../lib/api/auth/session')
+      vi.mocked(validateSession).mockResolvedValue(expiredSession)
+
+      // Act - First call caches expired session
+      await validateSessionWithCache(expiredSession.token)
+
+      // Second call should detect expiration and invalidate
+      vi.mocked(validateSession).mockResolvedValue(null)
+      const result = await validateSessionWithCache(expiredSession.token)
+
+      // Assert - Expired session should be removed from cache
+      expect(result).toBeNull()
+    })
+  })
+
+  describe('Health Check', () => {
+    it('should pass health check when Redis is available', async () => {
+      // Act
+      const healthy = await sessionCache.healthCheck()
+
+      // Assert
+      expect(healthy).toBe(true)
+    })
+
+    it('should return enabled status in metrics', () => {
+      // Act
+      const metrics = sessionCache.getMetrics()
+
+      // Assert
+      expect(metrics).toHaveProperty('enabled')
+      expect(metrics).toHaveProperty('ttl')
+      expect(typeof metrics.enabled).toBe('boolean')
+      expect(typeof metrics.ttl).toBe('number')
+    })
+  })
+
+  describe('Pool Statistics', () => {
+    it('should return connection pool stats', () => {
+      // Act
+      const stats = sessionCache.getPoolStats()
+
+      // Assert
+      if (stats) {
+        expect(stats).toHaveProperty('size')
+        expect(stats).toHaveProperty('available')
+        expect(stats).toHaveProperty('pending')
+        expect(typeof stats.size).toBe('number')
+        expect(typeof stats.available).toBe('number')
+        expect(typeof stats.pending).toBe('number')
+      }
+    })
+  })
+
+  describe('Warm Cache', () => {
+    it('should warm session directly into cache', async () => {
+      // Arrange
+      const testSession = createTestSession()
+
+      // Act - Warm cache (bypass validation)
+      await sessionCache.warmSession(testSession.token, testSession)
+
+      // Retrieve from cache
+      const result = await validateSessionWithCache(testSession.token)
+
+      // Assert - Should be cache hit, no database query
+      const { validateSession } = await import('../../../lib/api/auth/session')
+      expect(result).toEqual(testSession)
+      expect(validateSession).not.toHaveBeenCalled()
+    })
+  })
+})
