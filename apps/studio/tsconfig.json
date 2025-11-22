@@ -33,8 +33,21 @@
     "**/*.tsx",
     "**/*.js",
     "**/*.jsx",
-    ".next/types/**/*.ts",
+    ".next/types/app-build-manifest.d.ts",
+    ".next/types/app-page.d.ts",
+    ".next/types/app-route.d.ts",
+    ".next/types/app-route-utils.d.ts",
+    ".next/types/next-route-definitions.d.ts",
     "./../../packages/ui/src/**/*.d.ts"
   ],
-  "exclude": ["node_modules", "public/deno/*.ts"]
+  "exclude": [
+    "node_modules",
+    "public/deno/*.ts",
+    "**/__tests__/**",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/*.stories.tsx",
+    "**/*.bench.ts",
+    "tests/**/*"
+  ]
 }

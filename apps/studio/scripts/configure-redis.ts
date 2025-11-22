@@ -98,7 +98,7 @@ async function configureRedis() {
     const checks: ConfigCheck[] = []
 
     // Check maxmemory
-    const maxmemoryConfig = await redis.config('GET', 'maxmemory')
+    const maxmemoryConfig = (await redis.config('GET', 'maxmemory')) as [string, string]
     const currentMaxmemory = maxmemoryConfig[1]
     const maxmemoryOK = currentMaxmemory !== '0'
 
@@ -111,7 +111,7 @@ async function configureRedis() {
     })
 
     // Check eviction policy
-    const policyConfig = await redis.config('GET', 'maxmemory-policy')
+    const policyConfig = (await redis.config('GET', 'maxmemory-policy')) as [string, string]
     const currentPolicy = policyConfig[1]
     const policyOK = currentPolicy === 'allkeys-lru'
 
@@ -124,7 +124,7 @@ async function configureRedis() {
     })
 
     // Check AUTH requirement
-    const requirepassConfig = await redis.config('GET', 'requirepass')
+    const requirepassConfig = (await redis.config('GET', 'requirepass')) as [string, string]
     const requirepass = requirepassConfig[1]
     const authEnabled = requirepass !== ''
 

@@ -143,7 +143,7 @@ export function useRedisAlertsWithVisibility(options: UseRedisAlertsOptions = {}
 
   return useRedisAlertsQuery({
     ...restOptions,
-    refetchInterval: shouldRefetch ? refetchInterval : false,
+    refetchInterval: shouldRefetch ? refetchInterval : undefined,
   })
 }
 

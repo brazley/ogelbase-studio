@@ -105,6 +105,6 @@ export function useRedisHealthWithVisibility(options: UseRedisHealthOptions = {}
 
   return useRedisHealthQuery({
     ...restOptions,
-    refetchInterval: shouldRefetch ? refetchInterval : false,
+    refetchInterval: shouldRefetch ? refetchInterval : undefined,
   })
 }

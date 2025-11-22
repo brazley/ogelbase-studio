@@ -130,7 +130,7 @@ export function useRedisMetricsWithVisibility(options: UseRedisMetricsOptions = 
 
   return useRedisMetricsQuery({
     ...restOptions,
-    refetchInterval: shouldRefetch ? refetchInterval : false,
+    refetchInterval: shouldRefetch ? refetchInterval : undefined,
   })
 }
 

@@ -57,9 +57,9 @@ export function getCorrelationId(): string | undefined {
  * @param fn - Async function to execute with correlation context
  * @returns Result of fn
  */
-export function withCorrelationId<T>(id: string | undefined, fn: () => T | Promise<T>): Promise<T> {
+export async function withCorrelationId<T>(id: string | undefined, fn: () => T | Promise<T>): Promise<T> {
   const correlationId = id || generateCorrelationId()
-  return correlationStorage.run(correlationId, fn)
+  return await correlationStorage.run(correlationId, fn)
 }
 
 /**

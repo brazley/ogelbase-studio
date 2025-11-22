@@ -57,7 +57,7 @@ const developmentFormat = winston.format.combine(
     const { timestamp, level, message, service, correlation_id, ...meta } = info
 
     // Build correlation ID display
-    const corrId = correlation_id ? ` [${correlation_id.substring(0, 8)}]` : ''
+    const corrId = correlation_id ? ` [${String(correlation_id).substring(0, 8)}]` : ''
 
     // Build metadata display
     const metaStr = Object.keys(meta).length > 0 ? ` ${JSON.stringify(meta)}` : ''
@@ -146,7 +146,7 @@ export function logRedisOperation(params: {
 }) {
   const { operation, message, level = 'info', error, ...meta } = params
 
-  const logData = {
+  const logData: Record<string, any> = {
     operation,
     ...meta,
   }

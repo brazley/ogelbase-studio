@@ -40,7 +40,7 @@
  */
 
 import { NextApiRequest, NextApiResponse } from 'next'
-import { queryPlatformDatabase } from '@/lib/api/platform/database'
+import { queryPlatformDatabase } from '../platform/database'
 
 /**
  * User context with active organization (from session cache)

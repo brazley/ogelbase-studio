@@ -53,7 +53,7 @@ export function OrganizationSwitcher() {
 
   const handleSwitch = async (orgId: string) => {
     // Prevent switching to same org or when already switching
-    if (orgId === selectedOrg?.id || switching) return
+    if (orgId === String(selectedOrg?.id) || switching) return
 
     setSwitching(true)
     setError(null)
@@ -78,7 +78,7 @@ export function OrganizationSwitcher() {
       queryClient.invalidateQueries({ queryKey: ['organizations'] })
 
       // Navigate to the new organization context
-      const selectedOrgData = organizations.find((org) => org.id === orgId)
+      const selectedOrgData = organizations.find((org) => String(org.id) === orgId)
       if (selectedOrgData) {
         // If we're currently in an org route, replace the slug with the new one
         const currentPath = router.pathname

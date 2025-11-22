@@ -132,6 +132,12 @@ export const generateDatabaseMenu = (
           url: `/project/${ref}/database/migrations`,
           items: [],
         },
+        {
+          name: 'Redis',
+          key: 'redis',
+          url: `/project/${ref}/database/redis`,
+          items: [],
+        },
         ...(showWrappers
           ? [
               {
