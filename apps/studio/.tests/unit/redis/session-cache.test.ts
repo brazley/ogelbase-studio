@@ -6,8 +6,178 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { sessionCache, validateSessionWithCache } from '../../../lib/api/auth/session-cache'
 import type { SessionWithUser } from '../../../lib/api/auth/session'
+
+// CRITICAL: Set REDIS_URL before any module imports
+// The sessionCache singleton is created at module load time
+process.env.REDIS_URL = 'redis://localhost:6379'
+
+// Shared session store for all tests
+const sessionStore = new Map<string, any>()
+
+// Mock ioredis with shared state
+vi.mock('ioredis', () => {
+  const RedisMock = vi.fn(function () {
+    return {
+      ping: vi.fn().mockResolvedValue('PONG'),
+      get: vi.fn().mockResolvedValue(null),
+      set: vi.fn().mockResolvedValue('OK'),
+      del: vi.fn().mockResolvedValue(1),
+      hset: vi.fn((key: string, field: string, value: string) => {
+        let data = sessionStore.get(key) || {}
+        data[field] = value
+        sessionStore.set(key, data)
+        return Promise.resolve(1)
+      }),
+      hget: vi.fn((key: string, field: string) => {
+        const data = sessionStore.get(key)
+        return Promise.resolve(data?.[field] || null)
+      }),
+      hgetall: vi.fn((key: string) => {
+        const data = sessionStore.get(key)
+        return Promise.resolve(data || {})
+      }),
+      expire: vi.fn().mockResolvedValue(1),
+      ttl: vi.fn().mockResolvedValue(10),
+      scan: vi.fn((cursor: string, ...args: any[]) => {
+        // Parse pattern from args if provided
+        let pattern: string | undefined
+        for (let i = 0; i < args.length; i++) {
+          if (args[i] === 'MATCH' && args[i + 1]) {
+            pattern = args[i + 1]
+            break
+          }
+        }
+
+        const keys = Array.from(sessionStore.keys()).filter(k => {
+          if (!pattern) return true
+          const regex = new RegExp(pattern.replace(/\*/g, '.*'))
+          return regex.test(k)
+        })
+        return Promise.resolve(['0', keys])
+      }),
+      quit: vi.fn().mockResolvedValue('OK'),
+    }
+  })
+
+  return {
+    default: RedisMock,
+    Redis: RedisMock,
+  }
+})
+
+// Mock generic-pool
+vi.mock('generic-pool', () => ({
+  createPool: vi.fn((factory, options) => {
+    let client: any = null
+
+    return {
+      acquire: vi.fn(async () => {
+        if (!client) {
+          client = await factory.create()
+        }
+        return client
+      }),
+      release: vi.fn(),
+      destroy: vi.fn(async (conn) => {
+        if (factory.destroy) await factory.destroy(conn)
+      }),
+      drain: vi.fn(async () => {
+        if (client && factory.destroy) {
+          await factory.destroy(client)
+        }
+        client = null
+      }),
+      clear: vi.fn(),
+      get size() { return client ? 1 : 0 },
+      get available() { return client ? 1 : 0 },
+      get pending() { return 0 },
+    }
+  }),
+}))
+
+// Mock observability logger
+vi.mock('../../../lib/api/observability/logger', () => ({
+  logger: {
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+  },
+  logRedisOperation: vi.fn(),
+  logPoolEvent: vi.fn(),
+  logCacheOperation: vi.fn(),
+}))
+
+// Mock hotkey detection
+vi.mock('../../../lib/api/cache/hotkey-detection', () => ({
+  getHotkeyDetector: vi.fn(() => ({
+    track: vi.fn(),
+    getHotkeys: vi.fn(() => []),
+    reset: vi.fn(),
+  })),
+}))
+
+// Mock connection manager
+vi.mock('../../../lib/api/platform/connection-manager', () => ({
+  DatabaseType: {
+    REDIS: 'redis',
+  },
+  Tier: {
+    PRO: 'pro',
+  },
+  ConnectionPool: class {}, // Mock interface
+  connectionManager: {
+    executeWithCircuitBreaker: vi.fn(async (projectId, dbType, tier, operation, action) => {
+      return await action()
+    }),
+  },
+}))
+
+// Mock the redis module to prevent require errors
+vi.mock('../../../lib/api/platform/redis', async (importOriginal) => {
+  const actual = await importOriginal() as any
+  return {
+    ...actual,
+    RedisClientWrapper: class {
+      constructor() {}
+      async ping() { return 'PONG' }
+      async healthCheck() { return true }
+      async close() {}
+      getPoolStats() { return { size: 1, available: 1, pending: 0 } }
+      async hset(key: string, field: string, value: string) {
+        let data = sessionStore.get(key) || {}
+        data[field] = value
+        sessionStore.set(key, data)
+        return 1
+      }
+      async hget(key: string, field: string) {
+        const data = sessionStore.get(key)
+        return data?.[field] || null
+      }
+      async hgetall(key: string) {
+        return sessionStore.get(key) || {}
+      }
+      async del(key: string) {
+        const existed = sessionStore.has(key)
+        sessionStore.delete(key)
+        return existed ? 1 : 0
+      }
+      async expire(key: string, seconds: number) { return 1 }
+      async scan(cursor: string, pattern?: string, count?: number) {
+        const keys = Array.from(sessionStore.keys()).filter(k => {
+          if (!pattern) return true
+          const regex = new RegExp(pattern.replace(/\*/g, '.*'))
+          return regex.test(k)
+        })
+        return ['0', keys] as [string, string[]]
+      }
+    },
+    createRedisClient: vi.fn((projectId, options) => {
+      return new (vi.mocked(actual).RedisClientWrapper as any)()
+    }),
+  }
+})
 
 // Mock the validateSession function
 vi.mock('../../../lib/api/auth/session', () => ({
@@ -15,6 +185,8 @@ vi.mock('../../../lib/api/auth/session', () => ({
   revokeSession: vi.fn(),
   revokeAllUserSessions: vi.fn(),
 }))
+
+import { sessionCache, validateSessionWithCache } from '../../../lib/api/auth/session-cache'
 
 describe('Session Cache', () => {
   // Sample session data
@@ -35,13 +207,13 @@ describe('Session Cache', () => {
   })
 
   beforeEach(async () => {
-    // Reset environment
-    process.env.REDIS_URL = 'redis://localhost:6379'
-
     // Reset metrics
     sessionCache.resetMetrics()
 
-    // Clear any existing cache
+    // Clear the in-memory store (shared across all mocks)
+    sessionStore.clear()
+
+    // Clear mock call history
     vi.clearAllMocks()
   })
 

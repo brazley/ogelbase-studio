@@ -7,9 +7,138 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import type { Redis as RedisClient } from 'ioredis'
+
+// Mock ioredis before imports
+vi.mock('ioredis', () => {
+  // In-memory store for testing
+  const store = new Map<string, string>()
+  const hashStore = new Map<string, Record<string, string>>()
+
+  const RedisMock = vi.fn()
+  RedisMock.prototype.ping = vi.fn().mockResolvedValue('PONG')
+  RedisMock.prototype.get = vi.fn((key: string) => Promise.resolve(store.get(key) || null))
+  RedisMock.prototype.set = vi.fn((key: string, value: string, ...args: any[]) => {
+    store.set(key, value)
+    return Promise.resolve('OK')
+  })
+  RedisMock.prototype.del = vi.fn((...keys: string[]) => {
+    let deleted = 0
+    for (const key of keys) {
+      if (store.delete(key) || hashStore.delete(key)) deleted++
+    }
+    return Promise.resolve(deleted)
+  })
+  RedisMock.prototype.hset = vi.fn((key: string, field: string, value: string) => {
+    const hash = hashStore.get(key) || {}
+    hash[field] = value
+    hashStore.set(key, hash)
+    return Promise.resolve(1)
+  })
+  RedisMock.prototype.hget = vi.fn((key: string, field: string) => {
+    const hash = hashStore.get(key)
+    return Promise.resolve(hash?.[field] || null)
+  })
+  RedisMock.prototype.hgetall = vi.fn((key: string) => {
+    return Promise.resolve(hashStore.get(key) || {})
+  })
+  RedisMock.prototype.ttl = vi.fn().mockResolvedValue(10)
+  RedisMock.prototype.quit = vi.fn().mockResolvedValue('OK')
+  RedisMock.prototype.disconnect = vi.fn()
+
+  return {
+    default: RedisMock,
+    Redis: RedisMock,
+  }
+})
+
+// Mock generic-pool
+vi.mock('generic-pool', () => ({
+  createPool: vi.fn((factory, options) => {
+    const connections: any[] = []
+    let available = 0
+
+    return {
+      acquire: vi.fn(async () => {
+        const conn = await factory.create()
+        connections.push(conn)
+        return conn
+      }),
+      release: vi.fn((conn) => {
+        available++
+      }),
+      destroy: vi.fn(async (conn) => {
+        await factory.destroy(conn)
+        const idx = connections.indexOf(conn)
+        if (idx > -1) connections.splice(idx, 1)
+      }),
+      drain: vi.fn(async () => {
+        for (const conn of connections) {
+          await factory.destroy(conn)
+        }
+        connections.length = 0
+        available = 0
+      }),
+      clear: vi.fn(async () => {
+        connections.length = 0
+        available = 0
+      }),
+      get size() { return connections.length },
+      get available() { return available },
+      get pending() { return 0 },
+    }
+  }),
+}))
+
+// Mock observability logger
+vi.mock('../../../lib/api/observability/logger', () => ({
+  logger: {
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+  },
+  logRedisOperation: vi.fn(),
+  logPoolEvent: vi.fn(),
+  logCacheOperation: vi.fn(),
+  logCircuitBreakerEvent: vi.fn(),
+}))
+
+// Mock hotkey detection
+vi.mock('../../../lib/api/cache/hotkey-detection', () => ({
+  getHotkeyDetector: vi.fn(() => ({
+    track: vi.fn(),
+    getHotkeys: vi.fn(() => []),
+    reset: vi.fn(),
+  })),
+}))
+
+// Mock connection manager - MUST match the module path used in redis.ts
+vi.mock('../../../lib/api/platform/connection-manager', () => {
+  const mockConnectionManager = {
+    executeWithCircuitBreaker: vi.fn(async (projectId, dbType, tier, operation, action) => {
+      return await action()
+    }),
+  }
+
+  return {
+    DatabaseType: {
+      POSTGRES: 'postgres',
+      REDIS: 'redis',
+      MONGODB: 'mongodb',
+    },
+    Tier: {
+      FREE: 'free',
+      PRO: 'pro',
+      ENTERPRISE: 'enterprise',
+    },
+    ConnectionPool: class {}, // Mock interface
+    connectionManager: mockConnectionManager,
+  }
+})
+
 import { RedisConnectionPool, RedisClientWrapper } from '../../../lib/api/platform/redis'
 import { DatabaseType, Tier } from '../../../lib/api/platform/connection-manager'
-import { createMockRedis } from '../../helpers/mocks'
 
 describe('Redis Connection Manager', () => {
   describe('RedisConnectionPool', () => {
@@ -128,10 +257,16 @@ describe('Redis Connection Manager', () => {
 
   describe('RedisClientWrapper', () => {
     let wrapper: RedisClientWrapper
+    const mockConnectionManager = {
+      executeWithCircuitBreaker: vi.fn(async (projectId: string, dbType: string, tier: string, operation: string, action: Function) => {
+        return await action()
+      }),
+    } as any
 
     beforeEach(() => {
       // Setup test environment
       process.env.REDIS_URL = 'redis://localhost:6379'
+      vi.clearAllMocks()
     })
 
     afterEach(async () => {
@@ -148,7 +283,8 @@ describe('Redis Connection Manager', () => {
         {
           connectionString: 'redis://localhost:6379',
           tier: Tier.PRO,
-        }
+        },
+        mockConnectionManager
       )
 
       // Act
@@ -165,7 +301,8 @@ describe('Redis Connection Manager', () => {
         {
           connectionString: 'redis://localhost:6379',
           tier: Tier.PRO,
-        }
+        },
+        mockConnectionManager
       )
 
       const testKey = 'test:key:123'
@@ -189,7 +326,8 @@ describe('Redis Connection Manager', () => {
         {
           connectionString: 'redis://localhost:6379',
           tier: Tier.PRO,
-        }
+        },
+        mockConnectionManager
       )
 
       const hashKey = 'test:hash:456'
@@ -223,7 +361,8 @@ describe('Redis Connection Manager', () => {
         {
           connectionString: 'redis://localhost:6379',
           tier: Tier.PRO,
-        }
+        },
+        mockConnectionManager
       )
 
       const testKey = 'test:expire:789'
@@ -249,7 +388,8 @@ describe('Redis Connection Manager', () => {
         {
           connectionString: 'redis://localhost:6379',
           tier: Tier.PRO,
-        }
+        },
+        mockConnectionManager
       )
 
       // Act
@@ -270,7 +410,8 @@ describe('Redis Connection Manager', () => {
             minPoolSize: 2,
             maxPoolSize: 10,
           },
-        }
+        },
+        mockConnectionManager
       )
 
       // Act
@@ -288,6 +429,12 @@ describe('Redis Connection Manager', () => {
   })
 
   describe('Circuit Breaker Protection', () => {
+    const mockConnectionManager = {
+      executeWithCircuitBreaker: vi.fn(async (projectId: string, dbType: string, tier: string, operation: string, action: Function) => {
+        return await action()
+      }),
+    } as any
+
     it('should protect against repeated failures', async () => {
       // Arrange
       const invalidConnectionString = 'redis://invalid-host:6379'
@@ -296,7 +443,8 @@ describe('Redis Connection Manager', () => {
         {
           connectionString: invalidConnectionString,
           tier: Tier.FREE,
-        }
+        },
+        mockConnectionManager
       )
 
       // Act & Assert - first few failures should throw
