@@ -1,0 +1,12 @@
+{
+  "name": "bun-migrations",
+  "version": "1.0.0",
+  "description": "Migration runner with Railway internal network access",
+  "scripts": {
+    "migrate-008": "bun run apply-migration-008.ts",
+    "rollback-008": "bun run rollback-migration-008.ts"
+  },
+  "dependencies": {
+    "postgres": "^3.4.4"
+  }
+}
