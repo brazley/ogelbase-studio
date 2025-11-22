@@ -8,19 +8,21 @@
 #    docker builder prune
 #    docker build . -f apps/studio/Dockerfile --target production -t studio:latest --no-cache
 
-FROM node:22-slim AS base
+FROM node:22-alpine AS base
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 
 # Fixes issues with Sentry CLI and SSL certificates during build
 # TODO: Git is added because it's needed to build libpg, remove it once they publish a binary on the S3 bucket
-RUN apt-get update -qq && \
-  apt-get install -y --no-install-recommends \
+# Install necessary packages for Alpine Linux
+# bash is required for docker-entrypoint.sh
+RUN apk add --no-cache \
   git \
-  python3 \ 
+  python3 \
   ca-certificates \
-  build-essential && \ 
-  rm -rf /var/lib/apt/lists/* && \
+  build-base \
+  bash \
+  tini && \
   update-ca-certificates
 
 RUN npm install -g pnpm@10.16.1
@@ -52,6 +54,9 @@ RUN pnpm install --frozen-lockfile
 
 # dev contains dependencies and source code not compiled
 FROM deps AS dev
+# Copy the entrypoint script for dev stage
+COPY apps/studio/docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 COPY --from=turbo /app/out/full ./
 ENTRYPOINT ["docker-entrypoint.sh"]
 EXPOSE 8082
@@ -82,6 +87,9 @@ RUN pnpm --filter studio exec next build
 
 # Copy only compiled code and dependencies
 FROM base AS production
+# Copy the entrypoint script
+COPY apps/studio/docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 COPY --from=builder /app/apps/studio/public ./apps/studio/public
 COPY --from=builder /app/apps/studio/.next/standalone ./
 COPY --from=builder /app/apps/studio/.next/static ./apps/studio/.next/static

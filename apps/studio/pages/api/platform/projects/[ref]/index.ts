@@ -92,7 +92,8 @@ const handlePatch = async (req: NextApiRequest, res: NextApiResponse) => {
   // Add project ID as final parameter
   parameters.push(access.project.id)
 
-  const { data, error } = await import('lib/api/platform/database').then(m => m.queryPlatformDatabase)({
+  const { queryPlatformDatabase } = await import('lib/api/platform/database')
+  const { data, error } = await queryPlatformDatabase({
     query: `
       UPDATE platform.projects
       SET ${updates.join(', ')}, updated_at = NOW()
@@ -128,7 +129,8 @@ const handleDelete = async (req: NextApiRequest, res: NextApiResponse) => {
   const { user, access } = result
 
   // Soft delete the project
-  const { error } = await import('lib/api/platform/database').then(m => m.queryPlatformDatabase)({
+  const { queryPlatformDatabase } = await import('lib/api/platform/database')
+  const { error } = await queryPlatformDatabase({
     query: `
       UPDATE platform.projects
       SET status = 'deleted', updated_at = NOW()

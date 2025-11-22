@@ -172,7 +172,7 @@ async function fetchAuditLogs(
   queryParams.set('offset', String(filters.offset))
 
   const { data, error } = await get(
-    `/platform/audit/logs?${queryParams.toString()}`,
+    `/platform/audit/logs?${queryParams.toString()}` as any,
     { signal }
   )
 

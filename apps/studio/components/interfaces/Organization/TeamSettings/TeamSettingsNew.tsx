@@ -20,7 +20,7 @@ export const TeamSettingsNew = () => {
   const { profile } = useProfile()
 
   const { data: members } = usePlatformMembersQuery({ slug })
-  const currentUser = members?.find((m) => m.user_id === profile?.id)
+  const currentUser = members?.find((m) => String(m.user_id) === String(profile?.id))
   const canInvite = currentUser?.role === 'owner' || currentUser?.role === 'admin'
 
   return (

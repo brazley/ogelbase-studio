@@ -91,6 +91,11 @@ next-env.d.ts
 .env.staging
 .env.production
 
+# Database migrations with production credentials
+**/006_register_railway_databases_production.sql
+**/*_production.sql
+studio-vars-backup-*.json
+
 # parcel-bundler cache (https://parceljs.org/)
 .cache
 
@@ -150,3 +155,6 @@ gcloud.json
 **/.sentryclirc
 
 keys.json
+
+# Postgres source code (for local reference)
+/postgres

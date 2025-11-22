@@ -76,6 +76,7 @@
   "dependencies": {
     "@opentelemetry/resources": "^2.2.0",
     "@opentelemetry/sdk-trace-node": "^2.2.0",
-    "@opentelemetry/semantic-conventions": "^1.38.0"
+    "@opentelemetry/semantic-conventions": "^1.38.0",
+    "postgres": "^3.4.7"
   }
 }

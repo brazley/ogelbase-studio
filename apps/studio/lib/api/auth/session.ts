@@ -5,7 +5,7 @@
 
 import { queryPlatformDatabase } from '../platform/database'
 import { hashToken } from './utils'
-import type { PlatformUserSession } from './types'
+import type { PlatformUserSession, PlatformUserSessionWithUser } from './types'
 
 // ============================================
 // Session Types
@@ -42,20 +42,7 @@ export async function validateSession(token: string): Promise<SessionWithUser | 
   try {
     const tokenHash = hashToken(token)
 
-    const { data: sessions, error } = await queryPlatformDatabase<{
-      id: string
-      user_id: string
-      token: string
-      expires_at: string
-      last_activity_at: string
-      ip_address: string | null
-      user_agent: string | null
-      created_at: string
-      email: string
-      first_name: string | null
-      last_name: string | null
-      username: string | null
-    }>({
+    const { data: sessions, error } = await queryPlatformDatabase<PlatformUserSessionWithUser>({
       query: `
         SELECT
           s.id,
@@ -69,7 +56,10 @@ export async function validateSession(token: string): Promise<SessionWithUser | 
           u.email,
           u.first_name,
           u.last_name,
-          u.username
+          u.username,
+          u.avatar_url,
+          u.banned_until,
+          u.deleted_at
         FROM platform.user_sessions s
         JOIN platform.users u ON s.user_id = u.id
         WHERE s.token = $1

@@ -167,7 +167,7 @@ function CustomApp({ Component, pageProps }: AppPropsWithLayout) {
                   {/* Temporary migration, to be removed by 2025-11-28 */}
                   <LegacyInlineEditorHotkeyMigration />
                   <Telemetry />
-                  {!isTestEnv && (
+                  {process.env.NODE_ENV === 'development' && (
                     <ReactQueryDevtools initialIsOpen={false} position="bottom-right" />
                   )}
                 </ProfileProvider>

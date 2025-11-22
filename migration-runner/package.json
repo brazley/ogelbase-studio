@@ -1,0 +1,11 @@
+{
+  "name": "migration-runner",
+  "version": "1.0.0",
+  "type": "module",
+  "dependencies": {
+    "postgres": "^3.4.7"
+  },
+  "scripts": {
+    "migrate": "node apply-migration-008.mjs"
+  }
+}

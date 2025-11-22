@@ -1,0 +1,10 @@
+node_modules/
+.next/
+.turbo/
+dist/
+build/
+.git/
+apps/
+packages/
+!run-migration-008.js
+!apps/studio/database/migrations/008_add_active_org_tracking.sql

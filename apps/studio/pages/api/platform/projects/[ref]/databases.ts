@@ -44,7 +44,7 @@ const handleGet = async (req: NextApiRequest, res: NextApiResponse<ResponseData>
       region: process.env.RAILWAY_REGION || 'us-west',
       restUrl: project.supabase_url ? `${project.supabase_url}/rest/v1/` : PROJECT_REST_URL,
       size: '',
-      status: project.status === 'ACTIVE_HEALTHY' ? 'ACTIVE_HEALTHY' : project.status,
+      status: (project.status === 'ACTIVE_HEALTHY' ? 'ACTIVE_HEALTHY' : project.status) as any,
     },
   ])
 }

@@ -17,3 +17,17 @@ tests
 
 .dockerignore
 apps/studio/Dockerfile
+
+# Test files and directories
+**/*.test.*
+**/*.spec.*
+**/__tests__
+**/.turbo
+**/coverage
+**/test-results
+
+# Source maps (already excluded from build, but ensure not copied)
+**/*.map
+
+# Playwright reports
+**/playwright-report

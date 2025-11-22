@@ -13,14 +13,14 @@ import { useRemovePlatformMemberMutation } from 'data/platform-members/platform-
 import { useUpdatePlatformMemberMutation } from 'data/platform-members/platform-member-update-mutation'
 import { useProfile } from 'lib/profile'
 import {
-  AlertDialog_Shadcn_,
-  AlertDialogAction_Shadcn_,
-  AlertDialogCancel_Shadcn_,
-  AlertDialogContent_Shadcn_,
-  AlertDialogDescription_Shadcn_,
-  AlertDialogFooter_Shadcn_,
-  AlertDialogHeader_Shadcn_,
-  AlertDialogTitle_Shadcn_,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
   Badge,
   Button,
   DropdownMenu,
@@ -149,14 +149,14 @@ const MemberActions = ({
       </DropdownMenu>
 
       {/* Change Role Dialog */}
-      <AlertDialog_Shadcn_ open={showRoleDialog} onOpenChange={setShowRoleDialog}>
-        <AlertDialogContent_Shadcn_>
-          <AlertDialogHeader_Shadcn_>
-            <AlertDialogTitle_Shadcn_>Change member role</AlertDialogTitle_Shadcn_>
-            <AlertDialogDescription_Shadcn_>
+      <AlertDialog open={showRoleDialog} onOpenChange={setShowRoleDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Change member role</AlertDialogTitle>
+            <AlertDialogDescription>
               Update the role for {member.email}. This will change their access level immediately.
-            </AlertDialogDescription_Shadcn_>
-          </AlertDialogHeader_Shadcn_>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
 
           <div className="py-4">
             <Select_Shadcn_ value={newRole} onValueChange={(v) => setNewRole(v as any)}>
@@ -179,28 +179,28 @@ const MemberActions = ({
             </Select_Shadcn_>
           </div>
 
-          <AlertDialogFooter_Shadcn_>
-            <AlertDialogCancel_Shadcn_>Cancel</AlertDialogCancel_Shadcn_>
-            <AlertDialogAction_Shadcn_ onClick={handleUpdateRole}>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleUpdateRole}>
               Update role
-            </AlertDialogAction_Shadcn_>
-          </AlertDialogFooter_Shadcn_>
-        </AlertDialogContent_Shadcn_>
-      </AlertDialog_Shadcn_>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Remove Member Dialog */}
-      <AlertDialog_Shadcn_ open={showRemoveDialog} onOpenChange={setShowRemoveDialog}>
-        <AlertDialogContent_Shadcn_>
-          <AlertDialogHeader_Shadcn_>
-            <AlertDialogTitle_Shadcn_>Remove member</AlertDialogTitle_Shadcn_>
-            <AlertDialogDescription_Shadcn_>
+      <AlertDialog open={showRemoveDialog} onOpenChange={setShowRemoveDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove member</AlertDialogTitle>
+            <AlertDialogDescription>
               Are you sure you want to remove {member.email} from this organization? They will lose
               access immediately.
-            </AlertDialogDescription_Shadcn_>
-          </AlertDialogHeader_Shadcn_>
-          <AlertDialogFooter_Shadcn_>
-            <AlertDialogCancel_Shadcn_>Cancel</AlertDialogCancel_Shadcn_>
-            <AlertDialogAction_Shadcn_
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
               className="bg-destructive hover:bg-destructive/90"
               onClick={() => {
                 onRemove(member.id)
@@ -208,10 +208,10 @@ const MemberActions = ({
               }}
             >
               Remove member
-            </AlertDialogAction_Shadcn_>
-          </AlertDialogFooter_Shadcn_>
-        </AlertDialogContent_Shadcn_>
-      </AlertDialog_Shadcn_>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   )
 }
@@ -230,7 +230,7 @@ export const TeamMembersList = () => {
   const { mutate: updateRole } = useUpdatePlatformMemberMutation()
   const { mutate: removeMember } = useRemovePlatformMemberMutation()
 
-  const currentUser = members?.find((m) => m.user_id === profile?.id)
+  const currentUser = members?.find((m) => String(m.user_id) === String(profile?.id))
   const currentUserRole = currentUser?.role || null
 
   const handleUpdateRole = (memberId: string, role: PlatformMember['role']) => {
@@ -275,7 +275,7 @@ export const TeamMembersList = () => {
         </TableHeader>
         <TableBody>
           {members.map((member) => {
-            const isCurrentUser = member.user_id === profile?.id
+            const isCurrentUser = String(member.user_id) === String(profile?.id)
             const displayName =
               member.first_name || member.last_name
                 ? `${member.first_name || ''} ${member.last_name || ''}`.trim()
@@ -310,7 +310,7 @@ export const TeamMembersList = () => {
                 <TableCell>
                   <MemberActions
                     member={member}
-                    currentUserId={profile?.id || ''}
+                    currentUserId={String(profile?.id || '')}
                     currentUserRole={currentUserRole}
                     onUpdateRole={handleUpdateRole}
                     onRemove={handleRemoveMember}

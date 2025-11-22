@@ -34,10 +34,11 @@ const AuthErrorToaster = ({ children }: PropsWithChildren) => {
 
 export const AuthProvider = ({ children }: PropsWithChildren) => {
   // Production auth - no mock bypass
+  const AuthProviderComponent = AuthProviderInternal as React.ComponentType<PropsWithChildren>
   return (
-    <AuthProviderInternal>
+    <AuthProviderComponent>
       <AuthErrorToaster>{children}</AuthErrorToaster>
-    </AuthProviderInternal>
+    </AuthProviderComponent>
   )
 }
 

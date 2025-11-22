@@ -13,8 +13,7 @@ export type SignUpVariables = {
 }
 
 export async function signup({ email, password, hcaptchaToken, redirectTo }: SignUpVariables) {
-  const { data, error } = await post('/api/auth/signup', {
-    // @ts-ignore
+  const { data, error } = await post('/api/auth/signup' as any, {
     body: { email, password, hcaptchaToken, redirectTo },
   })
 

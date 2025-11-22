@@ -99,6 +99,17 @@ export interface PlatformUserSession {
   created_at: string
 }
 
+// Session with user data (used when joining sessions with users table)
+export interface PlatformUserSessionWithUser extends PlatformUserSession {
+  email: string
+  username: string | null
+  first_name: string | null
+  last_name: string | null
+  avatar_url: string | null
+  banned_until: string | null
+  deleted_at: string | null
+}
+
 // ============================================
 // Session Management Types
 // ============================================
@@ -128,4 +139,28 @@ export interface UserContext {
   lastName: string | null
   username: string | null
   sessionId: string
+}
+
+// ============================================
+// Organization Types
+// ============================================
+
+export interface UserOrganization {
+  organization_id: string
+  organization_slug: string
+  organization_name: string
+  role: 'owner' | 'admin' | 'developer' | 'billing_admin' | 'member'
+  joined_at: string
+}
+
+export interface AuthenticatedUser {
+  id: string
+  email: string
+  first_name: string
+  last_name: string
+  username?: string | null
+  avatar_url?: string | null
+  created_at: string
+  activeOrgId?: string | null
+  organizations?: UserOrganization[]
 }

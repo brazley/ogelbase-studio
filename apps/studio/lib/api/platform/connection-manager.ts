@@ -2,6 +2,7 @@ import CircuitBreaker from 'opossum'
 import { EventEmitter } from 'events'
 import { Registry, Counter, Gauge, Histogram } from 'prom-client'
 import * as crypto from 'crypto-js'
+import { logger, logCircuitBreakerEvent, logRedisOperation } from '../observability/logger'
 
 const ENCRYPTION_KEY = process.env.PG_META_CRYPTO_KEY || 'SAMPLE_KEY'
 
@@ -358,8 +359,7 @@ export class DatabaseConnectionManager extends EventEmitter {
    */
   private getCircuitBreaker(
     projectId: string,
-    dbType: DatabaseType,
-    action: (...args: any[]) => Promise<any>
+    dbType: DatabaseType
   ): CircuitBreaker {
     const key = this.getPoolKey(projectId, dbType)
 
@@ -368,7 +368,9 @@ export class DatabaseConnectionManager extends EventEmitter {
     }
 
     const config = CIRCUIT_BREAKER_CONFIGS[dbType]
-    const breaker = new CircuitBreaker(action, {
+    // Create circuit breaker with a passthrough function
+    // The actual action is passed to fire() each time
+    const breaker = new CircuitBreaker(async (fn: () => Promise<any>) => fn(), {
       timeout: config.timeout,
       errorThresholdPercentage: config.errorThresholdPercentage,
       resetTimeout: config.resetTimeout,
@@ -380,25 +382,46 @@ export class DatabaseConnectionManager extends EventEmitter {
 
     // Event listeners
     breaker.on('open', () => {
-      console.error(`Circuit breaker OPEN for ${projectId}:${dbType}`)
+      logCircuitBreakerEvent({
+        event: 'open',
+        project_id: projectId,
+        db_type: dbType,
+        message: `Circuit breaker opened - system unhealthy`,
+      })
       this.metrics.recordCircuitState(dbType, projectId, 'open')
       this.emit('circuit-open', { projectId, dbType })
     })
 
     breaker.on('halfOpen', () => {
-      console.warn(`Circuit breaker HALF-OPEN for ${projectId}:${dbType}`)
+      logCircuitBreakerEvent({
+        event: 'half-open',
+        project_id: projectId,
+        db_type: dbType,
+        message: `Circuit breaker half-open - testing recovery`,
+      })
       this.metrics.recordCircuitState(dbType, projectId, 'half-open')
       this.emit('circuit-half-open', { projectId, dbType })
     })
 
     breaker.on('close', () => {
-      console.info(`Circuit breaker CLOSED for ${projectId}:${dbType}`)
+      logCircuitBreakerEvent({
+        event: 'close',
+        project_id: projectId,
+        db_type: dbType,
+        message: `Circuit breaker closed - system healthy`,
+      })
       this.metrics.recordCircuitState(dbType, projectId, 'closed')
       this.emit('circuit-closed', { projectId, dbType })
     })
 
     breaker.on('failure', (error: any) => {
-      console.warn(`Circuit breaker failure for ${projectId}:${dbType}:`, error.message)
+      logCircuitBreakerEvent({
+        event: 'failure',
+        project_id: projectId,
+        db_type: dbType,
+        message: `Circuit breaker recorded failure`,
+        error_message: error.message,
+      })
     })
 
     this.circuitBreakers.set(key, breaker)
@@ -418,8 +441,9 @@ export class DatabaseConnectionManager extends EventEmitter {
     const startTime = Date.now()
 
     try {
-      const breaker = this.getCircuitBreaker(projectId, dbType, action)
-      const result = await breaker.fire() as T
+      const breaker = this.getCircuitBreaker(projectId, dbType)
+      // Pass the action to fire() - the breaker's function will execute it
+      const result = await breaker.fire(action) as T
 
       const durationSec = (Date.now() - startTime) / 1000
       this.metrics.recordQuery(dbType, tier, durationSec, operation, true)
@@ -532,9 +556,21 @@ export class DatabaseConnectionManager extends EventEmitter {
             this.connectionMetadata.delete(key)
             closedCount++
 
-            console.info(`Closed idle connection pool: ${key}`)
+            logRedisOperation({
+              operation: 'pool_close_idle',
+              message: 'Closed idle connection pool',
+              level: 'info',
+              pool_key: key,
+              idle_time_ms: idleTime,
+            })
           } catch (error) {
-            console.error(`Error closing idle connection pool ${key}:`, error)
+            logRedisOperation({
+              operation: 'pool_close_idle',
+              message: 'Error closing idle connection pool',
+              level: 'error',
+              pool_key: key,
+              error: error as Error,
+            })
           }
         }
       }
@@ -556,7 +592,14 @@ export class DatabaseConnectionManager extends EventEmitter {
       this.circuitBreakers.delete(key)
       this.connectionMetadata.delete(key)
 
-      console.info(`Closed connection pool: ${key}`)
+      logRedisOperation({
+        operation: 'pool_close',
+        message: 'Closed connection pool',
+        level: 'info',
+        pool_key: key,
+        project_id: projectId,
+        db_type: dbType,
+      })
     }
   }
 
@@ -568,9 +611,20 @@ export class DatabaseConnectionManager extends EventEmitter {
     const promises = poolEntries.map(async ([key, pool]) => {
       try {
         await pool.drain()
-        console.info(`Closed connection pool: ${key}`)
+        logRedisOperation({
+          operation: 'pool_close_all',
+          message: 'Closed connection pool during shutdown',
+          level: 'info',
+          pool_key: key,
+        })
       } catch (error) {
-        console.error(`Error closing connection pool ${key}:`, error)
+        logRedisOperation({
+          operation: 'pool_close_all',
+          message: 'Error closing connection pool during shutdown',
+          level: 'error',
+          pool_key: key,
+          error: error as Error,
+        })
       }
     })
 

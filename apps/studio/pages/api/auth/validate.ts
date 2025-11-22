@@ -2,24 +2,18 @@
  * Token Validation Endpoint
  * GET /api/auth/validate
  *
- * Validates a session token and returns the associated user
+ * Validates a session token and returns the associated user with organizations
+ * Uses Redis caching for improved performance
  */
 
 import type { NextApiRequest, NextApiResponse } from 'next'
+import { extractBearerToken } from 'lib/api/auth/utils'
+import { validateSessionWithCache } from 'lib/api/auth/session-cache'
 import { queryPlatformDatabase } from 'lib/api/platform/database'
-import { extractBearerToken, hashToken } from 'lib/api/auth/utils'
-import type { AuthError, PlatformUser, PlatformUserSession } from 'lib/api/auth/types'
+import type { AuthError, AuthenticatedUser, UserOrganization } from 'lib/api/auth/types'
 
 interface ValidateResponse {
-  user: {
-    id: string
-    email: string
-    first_name: string
-    last_name: string
-    username?: string | null
-    avatar_url?: string | null
-    created_at: string
-  }
+  user: AuthenticatedUser
   expires_at: string
 }
 
@@ -43,106 +37,79 @@ export default async function handler(
       })
     }
 
-    // Hash the token to match database storage
-    const tokenHash = hashToken(token)
+    // Validate session using cache-enabled validation
+    // This will check Redis first, fall back to DB on cache miss
+    const session = await validateSessionWithCache(token)
 
-    // Query session with user data
-    const sessionResult = await queryPlatformDatabase<PlatformUserSession & { user: PlatformUser }>({
-      query: `
-        SELECT
-          s.id,
-          s.user_id,
-          s.token,
-          s.expires_at,
-          u.id as user_id,
-          u.email,
-          u.username,
-          u.first_name,
-          u.last_name,
-          u.avatar_url,
-          u.created_at,
-          u.banned_until,
-          u.deleted_at
-        FROM platform.user_sessions s
-        JOIN platform.users u ON s.user_id = u.id
-        WHERE s.token = $1
-      `,
-      parameters: [tokenHash],
-    })
-
-    if (sessionResult.error) {
-      console.error('[validate] Database error querying session:', sessionResult.error)
-      return res.status(500).json({
-        error: 'Failed to validate session',
-        code: 'DATABASE_ERROR',
-      })
-    }
-
-    if (!sessionResult.data || sessionResult.data.length === 0) {
+    if (!session) {
       return res.status(401).json({
-        error: 'Invalid session token',
+        error: 'Invalid or expired session token',
         code: 'INVALID_TOKEN',
       })
     }
 
-    const session = sessionResult.data[0]
-    const expiresAt = new Date(session.expires_at)
-
-    // Check if session has expired
-    if (expiresAt <= new Date()) {
-      // Delete expired session
-      await queryPlatformDatabase({
-        query: `DELETE FROM platform.user_sessions WHERE id = $1`,
-        parameters: [session.id],
-      })
-
-      return res.status(401).json({
-        error: 'Session has expired',
-        code: 'SESSION_EXPIRED',
-      })
-    }
-
-    // Check if account is deleted
-    if (session.deleted_at) {
-      return res.status(401).json({
-        error: 'This account has been deleted',
-        code: 'ACCOUNT_DELETED',
-      })
-    }
-
-    // Check if account is banned
-    if (session.banned_until) {
-      const bannedUntil = new Date(session.banned_until)
-      if (bannedUntil > new Date()) {
-        return res.status(403).json({
-          error: `Account is banned until ${bannedUntil.toISOString()}`,
-          code: 'ACCOUNT_BANNED',
-        })
-      }
-    }
-
-    // Update last activity timestamp
-    await queryPlatformDatabase({
+    // Fetch user's organizations and active org
+    const { data: userOrgData, error: orgError } = await queryPlatformDatabase<{
+      active_org_id: string | null
+      organization_id: string
+      organization_slug: string
+      organization_name: string
+      role: string
+      joined_at: string
+    }>({
       query: `
-        UPDATE platform.user_sessions
-        SET last_activity_at = NOW()
-        WHERE id = $1
+        SELECT
+          u.active_org_id,
+          o.id as organization_id,
+          o.slug as organization_slug,
+          o.name as organization_name,
+          om.role,
+          om.joined_at
+        FROM platform.users u
+        LEFT JOIN platform.organization_members om ON om.user_id = u.id
+        LEFT JOIN platform.organizations o ON o.id = om.organization_id
+        WHERE u.id = $1
+        ORDER BY om.joined_at ASC
       `,
-      parameters: [session.id],
+      parameters: [session.userId]
     })
 
-    // Return user info
+    if (orgError) {
+      console.error('[validate] Failed to fetch user organizations:', orgError)
+      // Continue without org data rather than failing
+    }
+
+    // Extract active org ID (same for all rows) and build organizations array
+    const activeOrgId = userOrgData && userOrgData.length > 0
+      ? userOrgData[0].active_org_id
+      : null
+
+    const organizations: UserOrganization[] = userOrgData
+      ?.filter(row => row.organization_id) // Filter out rows with no org (LEFT JOIN nulls)
+      .map(row => ({
+        organization_id: row.organization_id,
+        organization_slug: row.organization_slug,
+        organization_name: row.organization_name,
+        role: row.role as UserOrganization['role'],
+        joined_at: row.joined_at
+      })) || []
+
+    // Return user info with organizations
+    const user: AuthenticatedUser = {
+      id: session.userId,
+      email: session.email,
+      first_name: session.firstName || '',
+      last_name: session.lastName || '',
+      username: session.username,
+      avatar_url: undefined, // Not stored in session cache
+      created_at: session.createdAt,
+      activeOrgId,
+      organizations
+    }
+
     return res.status(200).json({
-      user: {
-        id: session.user_id,
-        email: session.email,
-        first_name: session.first_name || '',
-        last_name: session.last_name || '',
-        username: session.username,
-        avatar_url: session.avatar_url,
-        created_at: session.created_at,
-      },
-      expires_at: session.expires_at,
+      user,
+      expires_at: session.expiresAt,
     })
 
   } catch (error) {

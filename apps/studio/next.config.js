@@ -542,7 +542,17 @@ const nextConfig = {
     },
   },
   // Both configs for turbopack and webpack need to exist (and sync) because Nextjs still uses webpack for production building
-  webpack(config) {
+  webpack(config, { dev, isServer, webpack }) {
+    // Disable source maps in production builds (both client and server)
+    if (!dev) {
+      config.devtool = false
+
+      // Remove source map plugins that Next.js might add
+      config.plugins = (config.plugins || []).filter(
+        plugin => !plugin.constructor.name.includes('SourceMapDevToolPlugin')
+      )
+    }
+
     config.module?.rules
       .find((rule) => rule.oneOf)
       .oneOf.forEach((rule) => {

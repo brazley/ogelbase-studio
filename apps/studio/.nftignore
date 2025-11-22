@@ -1,0 +1,5 @@
+node_modules/@types/**
+node_modules/typescript/**
+node_modules/vitest/**
+node_modules/@vitest/**
+node_modules/sass/**

@@ -16,7 +16,7 @@
 | 005 | ✅ APPLIED | Unknown | Audit logs |
 | 006 | ✅ APPLIED | 2025-11-21 | Platform databases table + Railway integration |
 | 007 | ❌ NOT APPLIED | N/A | Restrictive RLS policies - BLOCKED waiting for session context |
-| 008 | ❌ NOT APPLIED | N/A | Active org tracking - DRAFT exists, not applied |
+| 008 | ✅ APPLIED | 2025-11-22 | Active org tracking - Omar deployed via Railway SSH |
 
 ---
 
@@ -86,7 +86,7 @@ platform.databases table:
 
 ## Migration 008 Status
 
-**Status**: ❌ NOT APPLIED (Ready for deployment)
+**Status**: ✅ APPLIED (Production)
 
 **File Location**: `apps/studio/database/migrations/008_add_active_org_tracking.sql`
 
@@ -142,7 +142,19 @@ WHERE active_org_id IS NULL
 - WS2 (Frontend org switcher) depends on this
 - No blocker for applying this migration immediately
 
-**Target Application Date**: Sprint 1 (Week 1-2) - READY NOW
+**Applied Date**: 2025-11-22
+
+**Deployment Method**: Railway SSH (Omar Diallo)
+- SSH'd into Railway studio container
+- Executed migration from within private network
+- Verified schema changes and backfill successful
+
+**Production Status**:
+- ✅ `active_org_id` column added to `platform.users`
+- ✅ Helper functions created (`set_user_active_org`, `get_user_active_org`)
+- ✅ Indexes and constraints in place
+- ✅ Existing users backfilled with first organization
+- ✅ Backend endpoints `/api/auth/validate` and `/api/auth/set-active-org` now operational
 
 ---
 

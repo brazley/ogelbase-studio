@@ -34,7 +34,7 @@ const handleGet = async (req: NextApiRequest, res: NextApiResponse<ResponseData>
   const { ref } = req.query
 
   const defaultResponse: ResponseData = {
-    ref: ref,
+    ref: String(ref),
     selected_addons: [],
     available_addons: [
       {
@@ -127,7 +127,7 @@ const handleGet = async (req: NextApiRequest, res: NextApiResponse<ResponseData>
     : []
 
   const response: ResponseData = {
-    ref: ref,
+    ref: String(ref),
     selected_addons: selectedAddons,
     available_addons: defaultResponse.available_addons,
   }

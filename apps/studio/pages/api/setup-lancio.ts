@@ -23,7 +23,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(500).json({ error: 'Failed to create organization', details: orgError.message })
     }
 
-    const orgId = orgData[0].id
+    const orgId = (orgData?.[0] as any)?.id
     console.log('Organization created:', orgData[0])
 
     // Create project
