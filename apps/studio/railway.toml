@@ -1,0 +1,23 @@
+[build]
+# Use Dockerfile for build
+builder = "dockerfile"
+dockerfilePath = "apps/studio/Dockerfile"
+
+# Build context is monorepo root
+context = "../.."
+
+# Pass NEXT_PUBLIC variables as Docker build args
+[build.buildArgs]
+NEXT_PUBLIC_IS_PLATFORM = "true"
+NEXT_PUBLIC_SUPABASE_URL = "${{NEXT_PUBLIC_SUPABASE_URL}}"
+NEXT_PUBLIC_GOTRUE_URL = "${{NEXT_PUBLIC_GOTRUE_URL}}"
+NEXT_PUBLIC_SUPABASE_ANON_KEY = "${{SUPABASE_ANON_KEY}}"
+NEXT_PUBLIC_API_URL = "${{NEXT_PUBLIC_API_URL}}"
+NEXT_PUBLIC_SITE_URL = "${{RAILWAY_PUBLIC_DOMAIN}}"
+
+[deploy]
+# Health check configuration
+healthcheckPath = "/api/platform/profile"
+healthcheckTimeout = 30
+restartPolicyType = "on-failure"
+restartPolicyMaxRetries = 10
