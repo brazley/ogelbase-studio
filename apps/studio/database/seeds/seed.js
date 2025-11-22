@@ -57,10 +57,10 @@ const config = {
   dbUser: process.env.DB_USER || 'postgres',
   dbPassword: process.env.POSTGRES_PASSWORD || 'sl2i90d6w7lzgejxxqwh3tiwuqxhtl64',
 
-  // Service URLs
+  // Service URLs (use internal URLs for Railway)
   postgresMetaUrl:
-    process.env.STUDIO_PG_META_URL || 'https://postgres-meta-production-6c48.up.railway.app',
-  supabaseUrl: process.env.SUPABASE_URL || 'https://kong-production-80c6.up.railway.app',
+    process.env.STUDIO_PG_META_URL || 'http://postgres-meta.railway.internal:8080',
+  supabaseUrl: process.env.SUPABASE_URL || 'http://kong.railway.internal:8000',
 
   // JWT credentials
   anonKey: process.env.SUPABASE_ANON_KEY || '',
