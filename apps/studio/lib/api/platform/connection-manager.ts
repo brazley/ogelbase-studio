@@ -589,8 +589,6 @@ export class DatabaseConnectionManager extends EventEmitter {
     if (pool) {
       await pool.drain()
       this.pools.delete(key)
-      this.circuitBreakers.delete(key)
-      this.connectionMetadata.delete(key)
 
       logRedisOperation({
         operation: 'pool_close',
@@ -601,6 +599,10 @@ export class DatabaseConnectionManager extends EventEmitter {
         db_type: dbType,
       })
     }
+
+    // Always clean up circuit breakers and metadata
+    this.circuitBreakers.delete(key)
+    this.connectionMetadata.delete(key)
   }
 
   /**

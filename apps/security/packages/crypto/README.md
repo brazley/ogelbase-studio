@@ -5,6 +5,9 @@
 This package provides cryptographic primitives for ZKEB:
 - **HKDF** (RFC 5869): Key derivation for hierarchical key management
 - **AES-256-GCM** (NIST SP 800-38D): Authenticated encryption for all backup payloads
+- **Key Hierarchy**: UMK → DMK → BEK/MEK (Three-tier key management system)
+- **PBKDF2** (RFC 2898): Password-based key derivation for account recovery (OWASP 2023: 600k iterations)
+- **RSA-4096-PSS**: Digital signatures for device authentication and backup integrity verification
 
 All implementations use native WebCrypto API for maximum performance and security. HKDF is the **ONLY** custom cryptographic implementation - all other operations delegate to browser/runtime crypto.
 
@@ -26,8 +29,11 @@ npm install @security/crypto
 
 - [Installation](#installation)
 - [Quick Start](#quick-start)
+- [Key Hierarchy (ZKEB Key Management)](#key-hierarchy-zkeb-key-management)
 - [AES-256-GCM (Encryption)](#aes-256-gcm-encryption)
 - [HKDF (Key Derivation)](#hkdf-key-derivation)
+- [PBKDF2 (Password-Based Key Derivation)](#pbkdf2-password-based-key-derivation)
+- [RSA-4096-PSS (Digital Signatures)](#rsa-4096-pss-digital-signatures)
 - [API Reference](#api-reference)
 - [Security Considerations](#security-considerations)
 - [Performance](#performance)
@@ -98,6 +104,288 @@ const encrypted = await encrypt(backupData, bek);
 
 // Later: decrypt backup data
 const decrypted = await decrypt(encrypted, bek);
+```
+
+---
+
+## Key Hierarchy (ZKEB Key Management)
+
+ZKEB implements a three-tier hierarchical key system for secure backup encryption:
+
+```
+UMK (User Master Key)
+  └─ DMK (Device Master Key, device-specific)
+      ├─ BEK (Backup Encryption Key)
+      └─ MEK (Metadata Encryption Key)
+```
+
+This hierarchy enables:
+- **Multi-Device Support**: Different DMKs per device, same UMK
+- **Key Separation**: Different keys for different purposes (backup vs metadata)
+- **Key Rotation**: Rotate child keys without changing parents
+- **Device Revocation**: Remove one device without affecting others
+
+### Quick Start: Complete Encryption Workflow
+
+```typescript
+import {
+  generateUserMasterKey,
+  deriveKeysFromUMK,
+  encrypt,
+  decrypt
+} from '@security/crypto';
+
+// 1. Generate UMK (once at account creation)
+const umk = await generateUserMasterKey();
+
+// 2. Derive keys for device
+const { dmk, keys } = await deriveKeysFromUMK(umk, 'device-123');
+
+// 3. Encrypt backup with BEK
+const backup = new TextEncoder().encode('sensitive user data');
+const encryptedBackup = await encrypt(backup, keys.backupEncryptionKey);
+
+// 4. Encrypt metadata with MEK
+const metadata = new TextEncoder().encode('{"deviceId": "device-123"}');
+const encryptedMetadata = await encrypt(metadata, keys.metadataEncryptionKey);
+
+// 5. Later: restore from backup
+const { keys: restoredKeys } = await deriveKeysFromUMK(umk, 'device-123');
+const decryptedBackup = await decrypt(encryptedBackup, restoredKeys.backupEncryptionKey);
+```
+
+### Step-by-Step Key Derivation
+
+#### 1. User Master Key (UMK)
+
+The root of trust - generated once at account creation, stored only client-side.
+
+```typescript
+import { generateUserMasterKey } from '@security/crypto';
+
+// Generate UMK (256-bit random)
+const umk = await generateUserMasterKey();
+
+// Store securely (IndexedDB, Secure Enclave, Android Keystore)
+await secureStorage.store('umk', umk.key);
+
+// WARNING: UMK NEVER transmitted to server
+// WARNING: Loss of UMK = permanent data loss
+```
+
+#### 2. Device Master Key (DMK)
+
+Device-specific key derived from UMK - enables multi-device support.
+
+```typescript
+import { deriveDeviceMasterKey } from '@security/crypto';
+
+// Derive DMK for device
+const dmk = await deriveDeviceMasterKey(umk, 'device-123');
+
+// Different device = different DMK
+const dmkOtherDevice = await deriveDeviceMasterKey(umk, 'device-456');
+
+// Deterministic: same inputs = same output
+const dmkAgain = await deriveDeviceMasterKey(umk, 'device-123');
+// dmk.key === dmkAgain.key
+```
+
+**Derivation:**
+```
+DMK = HKDF(
+  salt = deviceId (UTF-8 bytes),
+  ikm = UMK,
+  info = "ZKEB-DMK-v1",
+  length = 32
+)
+```
+
+#### 3. Encryption Keys (BEK, MEK)
+
+Purpose-specific keys derived from DMK - enables key separation and rotation.
+
+```typescript
+import { deriveDeviceKeys } from '@security/crypto';
+
+// Derive encryption keys from DMK
+const keys = await deriveDeviceKeys(dmk);
+
+// BEK: Encrypts backup payloads
+const encryptedBackup = await encrypt(backupData, keys.backupEncryptionKey);
+
+// MEK: Encrypts backup metadata
+const encryptedMeta = await encrypt(metadata, keys.metadataEncryptionKey);
+
+// Keys are independent
+// keys.backupEncryptionKey !== keys.metadataEncryptionKey
+```
+
+**Derivation:**
+```
+BEK = HKDF(salt="backup", ikm=DMK, info="ZKEB-BEK-v1", length=32)
+MEK = HKDF(salt="metadata", ikm=DMK, info="ZKEB-MEK-v1", length=32)
+```
+
+### Multi-Device Scenarios
+
+#### Register Multiple Devices
+
+```typescript
+// User has one UMK, stored on all devices
+const umk = await generateUserMasterKey(); // Generated once
+
+// Device A: iPhone
+const deviceA = await deriveKeysFromUMK(umk, 'iphone-abc123');
+
+// Device B: iPad
+const deviceB = await deriveKeysFromUMK(umk, 'ipad-def456');
+
+// Device C: Web Browser
+const deviceC = await deriveKeysFromUMK(umk, 'web-ghi789');
+
+// Each device gets unique DMK and encryption keys
+// deviceA.dmk.key !== deviceB.dmk.key !== deviceC.dmk.key
+```
+
+#### Device-Specific Encryption
+
+```typescript
+// Device A encrypts backup
+const deviceA = await deriveKeysFromUMK(umk, 'device-A');
+const backupA = await encrypt(data, deviceA.keys.backupEncryptionKey);
+
+// Device B CANNOT decrypt Device A's backup
+const deviceB = await deriveKeysFromUMK(umk, 'device-B');
+await decrypt(backupA, deviceB.keys.backupEncryptionKey); // throws AESGCMError
+```
+
+#### Device Revocation
+
+```typescript
+// Remove device: Delete device ID from server
+// Device A continues working
+// Device B revoked (server rejects device-B requests)
+// No need to rotate UMK or other devices' keys
+```
+
+### Key Rotation
+
+#### Rotate Encryption Keys (BEK/MEK)
+
+```typescript
+// Rotate by re-deriving from DMK (instant, no server communication)
+const keys = await deriveDeviceKeys(dmk);
+
+// Keys are deterministic - same DMK always produces same BEK/MEK
+// To actually rotate, you need a new DMK (new device registration)
+```
+
+#### Rotate Device Keys (DMK)
+
+```typescript
+// New device registration = new DMK
+const newDmk = await deriveDeviceMasterKey(umk, 'device-123-v2');
+const newKeys = await deriveDeviceKeys(newDmk);
+
+// Re-encrypt all backups with new BEK
+```
+
+#### Rotate Master Key (UMK)
+
+```typescript
+// UMK rotation = complete account reset (destructive)
+// Generate new UMK, re-encrypt EVERYTHING
+const newUmk = await generateUserMasterKey();
+
+// This is a rare, high-impact operation
+// Only do if UMK is compromised
+```
+
+### Security Properties
+
+#### Determinism
+
+Same inputs always produce same outputs - critical for key recovery.
+
+```typescript
+const umk = await generateUserMasterKey();
+
+const keys1 = await deriveKeysFromUMK(umk, 'device-123');
+const keys2 = await deriveKeysFromUMK(umk, 'device-123');
+
+// Always equal (byte-for-byte)
+keys1.dmk.key === keys2.dmk.key
+keys1.keys.backupEncryptionKey === keys2.keys.backupEncryptionKey
+```
+
+#### Key Separation
+
+Different purposes = different keys - compromise of one doesn't affect others.
+
+```typescript
+const { keys } = await deriveKeysFromUMK(umk, 'device-123');
+
+// Cryptographically independent
+keys.backupEncryptionKey !== keys.metadataEncryptionKey
+
+// Compromise of BEK doesn't expose MEK or DMK or UMK
+```
+
+#### iOS Compatibility
+
+Uses exact same context strings as iOS implementation for cross-platform compatibility:
+- `ZKEB-DMK-v1`: Device Master Key context
+- `ZKEB-BEK-v1`: Backup Encryption Key context
+- `ZKEB-MEK-v1`: Metadata Encryption Key context
+
+```typescript
+// TypeScript derivation
+const dmk = await deriveDeviceMasterKey(umk, deviceId);
+
+// iOS Swift derivation (produces identical keys)
+// let dmk = try deriveDeviceMasterKey(umk: umk, deviceId: deviceId)
+```
+
+### Performance
+
+Key derivation is fast (HKDF overhead is minimal):
+
+```typescript
+// UMK generation: <50ms
+const umk = await generateUserMasterKey();
+
+// Full hierarchy (UMK → DMK → BEK+MEK): <20ms
+const { dmk, keys } = await deriveKeysFromUMK(umk, 'device-123');
+```
+
+### Storage Recommendations
+
+**UMK Storage (Client-Side Only):**
+- **Browser**: IndexedDB with encryption at rest
+- **iOS**: Secure Enclave with biometric protection
+- **Android**: Android Keystore with biometric protection
+- **NEVER** transmit UMK to server
+- **NEVER** log UMK
+
+**DMK/BEK/MEK Storage:**
+- Derive on-demand from UMK (no storage needed)
+- Ephemeral in-memory during session
+- Zero on memory release
+
+### Error Handling
+
+```typescript
+import { KeyHierarchyError } from '@security/crypto';
+
+try {
+  const dmk = await deriveDeviceMasterKey(umk, 'device-123');
+} catch (error) {
+  if (error instanceof KeyHierarchyError) {
+    // Invalid UMK, empty device ID, or HKDF failure
+    console.error('Key derivation failed:', error.message);
+  }
+}
 ```
 
 ---
@@ -289,6 +577,394 @@ const key2 = await hkdfExpand(prk, new TextEncoder().encode('key-2'), 32);
 const key3 = await hkdfExpand(prk, new TextEncoder().encode('key-3'), 64);
 ```
 
+---
+
+## PBKDF2 (Password-Based Key Derivation)
+
+PBKDF2 derives cryptographic keys from user passwords. This enables **account recovery scenarios** where users can restore their UMK from a memorized password.
+
+⚠️ **CRITICAL WARNING**: Passwords are weak secrets. This is the **WEAKEST link** in the crypto chain. Users should strongly prefer Shamir Secret Sharing for recovery over password-based recovery.
+
+### Why PBKDF2?
+
+- ✅ **Industry Standard**: RFC 2898 / PKCS #5 standard
+- ✅ **OWASP 2023 Compliant**: 600,000 iterations with SHA-256
+- ✅ **Hardware Accelerated**: WebCrypto API native implementation
+- ✅ **Attack Resistant**: High iteration count slows brute-force attacks
+- ✅ **Performance**: <70ms for 600k iterations on modern hardware
+- ⚠️ **Weak Input**: Passwords have low entropy compared to random keys
+
+### Basic Password-to-Key Derivation
+
+```typescript
+import { deriveKeyFromPassword } from '@security/crypto';
+
+// Derive encryption key from user password
+const password = 'correct horse battery staple';  // Use strong passphrase
+const derived = await deriveKeyFromPassword(password);
+
+console.log(derived);
+// {
+//   key: Uint8Array(32),      // 256-bit encryption key
+//   salt: Uint8Array(16),     // 128-bit random salt
+//   iterations: 600000        // OWASP 2023 recommendation
+// }
+
+// Store salt (NOT secret, can be server-side)
+await storage.store('recovery-salt', derived.salt);
+
+// Use derived key as UMK or to encrypt UMK
+const umk = derived.key;
+```
+
+### Account Recovery Workflow
+
+```typescript
+import { deriveKeyFromPassword } from '@security/crypto';
+
+// SETUP: User creates password recovery
+const password = 'user-chosen-strong-password';
+const { key: umk, salt } = await deriveKeyFromPassword(password);
+
+// Store salt (not secret)
+await storage.store('user-recovery-salt', salt);
+
+// UMK stored securely client-side as usual
+await secureStorage.store('umk', umk);
+
+// =========================================
+
+// RECOVERY: User lost device, remembers password
+const storedSalt = await storage.retrieve('user-recovery-salt');
+const userPassword = promptUser('Enter recovery password:');
+
+const { key: recoveredUmk } = await deriveKeyFromPassword(
+  userPassword,
+  storedSalt
+);
+
+// recoveredUmk === umk (if password correct)
+// Now can derive all keys and decrypt backups
+```
+
+### Encrypting UMK with Password
+
+```typescript
+import { deriveKeyFromPassword } from '@security/crypto';
+import { encrypt, decrypt, generateKey } from '@security/crypto';
+
+// Generate actual UMK (random, not password-derived)
+const actualUmk = await generateKey();
+
+// Derive encryption key from user password
+const password = 'user-password';
+const { key: passwordKey, salt } = await deriveKeyFromPassword(password);
+
+// Encrypt UMK with password-derived key
+const encryptedUmk = await encrypt(actualUmk, passwordKey);
+
+// Store encrypted UMK + salt
+await storage.store('encrypted-umk', encryptedUmk);
+await storage.store('password-salt', salt);
+
+// =========================================
+
+// Later: Decrypt UMK with password
+const storedSalt = await storage.retrieve('password-salt');
+const storedEncryptedUmk = await storage.retrieve('encrypted-umk');
+
+const { key: derivedKey } = await deriveKeyFromPassword(password, storedSalt);
+const decryptedUmk = await decrypt(storedEncryptedUmk, derivedKey);
+
+// decryptedUmk === actualUmk
+```
+
+### Custom Iteration Counts
+
+```typescript
+import { deriveKeyFromPassword } from '@security/crypto';
+
+// Higher iterations = more secure but slower
+const derived = await deriveKeyFromPassword(
+  'my-password',
+  undefined,        // Auto-generate salt
+  1_000_000         // 1 million iterations (vs default 600k)
+);
+
+console.log(derived.iterations); // 1000000
+```
+
+### Password Verification
+
+```typescript
+import { verifyPassword } from '@security/crypto';
+
+// During setup
+const password = 'user-password';
+const { key, salt, iterations } = await deriveKeyFromPassword(password);
+
+// Store key and salt
+await storage.store('derived-key', key);
+await storage.store('salt', salt);
+
+// During login - verify password
+const userInput = promptUser('Enter password:');
+const storedKey = await storage.retrieve('derived-key');
+const storedSalt = await storage.retrieve('salt');
+
+const isValid = await verifyPassword(userInput, storedKey, storedSalt);
+
+if (isValid) {
+  // Password correct - grant access
+} else {
+  // Password incorrect - deny access
+}
+```
+
+### Salt Generation
+
+```typescript
+import { generateSalt } from '@security/crypto';
+
+// Generate default 128-bit salt
+const salt = generateSalt();
+console.log(salt.length); // 16 bytes
+
+// Generate custom length salt
+const largeSalt = generateSalt(32); // 256 bits
+```
+
+### ⚠️ Security Warnings
+
+**Password Strength:**
+- Minimum 12 characters (OWASP 2023)
+- Use passphrase (multiple words) instead of single word
+- High entropy is critical (passwords are weak secrets)
+- Never reuse passwords across services
+- Consider using password manager for generation
+
+**Iteration Count:**
+- Default 600,000 iterations (OWASP 2023 for PBKDF2-SHA256)
+- Increases over time as hardware improves
+- Trade-off: Higher = more secure but slower
+- Store iteration count with salt for recovery
+
+**Salt Storage:**
+- Salt is **NOT secret** (can be stored server-side)
+- Salt **MUST be unique per user**
+- Never reuse salts across different users
+- 128 bits minimum (16 bytes)
+
+**Recovery Limitations:**
+- Password forgotten = permanent data loss
+- Brute-force attacks possible (despite 600k iterations)
+- Social engineering risk (passwords are memorable)
+- Prefer Shamir Secret Sharing for critical recovery
+
+**Performance Impact:**
+- 600k iterations: ~65ms (acceptable for login)
+- 1M iterations: ~110ms (more secure, slower)
+- Consider web worker for non-blocking UI
+
+### Performance Characteristics
+
+PBKDF2 performance on modern hardware (2023):
+
+| Iterations | Time | Security Level |
+|------------|------|----------------|
+| 1,000 | <1ms | ❌ Too weak |
+| 10,000 | 1-2ms | ⚠️ Weak (legacy) |
+| 100,000 | 10-15ms | ⚠️ Below OWASP 2023 |
+| 600,000 | 65-70ms | ✅ OWASP 2023 |
+| 1,000,000 | 110-120ms | ✅ Extra secure |
+
+**Recommendation**: Use default 600,000 iterations. Increase to 1,000,000 for high-security scenarios where 100ms delay is acceptable.
+
+### PBKDF2 vs HKDF
+
+| Aspect | PBKDF2 | HKDF |
+|--------|--------|------|
+| **Input** | Weak passwords | Strong keys |
+| **Purpose** | Password → Key | Key → Multiple Keys |
+| **Speed** | Slow (intentional) | Fast |
+| **Iterations** | 600,000+ | 1 (extract/expand) |
+| **Use Case** | Account recovery | Key hierarchy |
+| **Security** | Weak input, strong output | Strong input, strong output |
+
+**Rule**: Use PBKDF2 **ONLY** for password → key conversion. Use HKDF for all key → key derivation.
+
+---
+
+## RSA-4096-PSS (Digital Signatures)
+
+RSA-4096-PSS provides digital signatures for device authentication and backup integrity verification. This enables **proving device identity** without sharing private keys and **verifying backup integrity** before accepting uploads.
+
+### Why RSA-4096-PSS?
+
+- ✅ **Device Authentication**: Prove device identity with signatures
+- ✅ **Non-Repudiation**: Signatures cannot be forged (only device can sign)
+- ✅ **Backup Integrity**: Verify backups came from authorized devices
+- ✅ **Quantum-Resistant Key Size**: 4096 bits (secure until ~2030)
+- ✅ **PSS Padding**: More secure than PKCS#1 v1.5 (random salt prevents malleability)
+- ✅ **WebCrypto Native**: Hardware-accelerated signing/verification
+
+### Device Registration Workflow
+
+```typescript
+import { generateKeyPair, sign, exportPublicKey } from '@security/crypto';
+
+// 1. Device generates RSA key pair
+const deviceKeys = await generateKeyPair();
+
+// 2. Export public key (safe to share)
+const publicKeyBytes = await exportPublicKey(deviceKeys.publicKey);
+
+// 3. Create device certificate
+const certificate = {
+  deviceId: 'device-123',
+  publicKey: Array.from(publicKeyBytes),
+  createdAt: Date.now(),
+  platform: 'ios'
+};
+
+// 4. Sign certificate with private key
+const certData = new TextEncoder().encode(JSON.stringify(certificate));
+const signature = await sign(certData, deviceKeys.privateKey);
+
+// 5. Send to server (public key + signature)
+await api.registerDevice({ certificate, signature });
+
+// 6. Store private key locally (NEVER transmit!)
+await secureStorage.store('device-private-key', deviceKeys.privateKey);
+```
+
+### Backup Signing Workflow
+
+```typescript
+import { sign, exportPrivateKey } from '@security/crypto';
+
+// Load device private key
+const privateKeyBytes = await secureStorage.load('device-private-key');
+const privateKey = await importPrivateKey(privateKeyBytes);
+
+// Hash backup data (sign hash, not full data for performance)
+const backupData = new Uint8Array(/* ... */);
+const backupHash = await crypto.subtle.digest('SHA-256', backupData);
+
+// Sign hash
+const signature = await sign(new Uint8Array(backupHash), privateKey);
+
+// Upload backup with signature
+await api.uploadBackup({
+  data: backupData,
+  signature: signature,
+  hash: Array.from(new Uint8Array(backupHash)),
+  timestamp: Date.now()
+});
+```
+
+### Server Verification
+
+```typescript
+import { verify, importPublicKey } from '@security/crypto';
+
+// 1. Retrieve device public key from database
+const devicePublicKeyBytes = await db.getDevicePublicKey(deviceId);
+const publicKey = await importPublicKey(devicePublicKeyBytes);
+
+// 2. Verify backup signature
+const backupHash = await crypto.subtle.digest('SHA-256', receivedBackupData);
+const isValid = await verify(
+  new Uint8Array(backupHash),
+  receivedSignature,
+  publicKey
+);
+
+if (!isValid) {
+  throw new Error('Backup signature verification failed - possible tampering');
+}
+
+// 3. Accept backup (signature valid)
+await db.saveBackup(backupData);
+```
+
+### Key Export/Import
+
+```typescript
+import {
+  exportKeyPair,
+  importPublicKey,
+  importPrivateKey
+} from '@security/crypto';
+
+// Export key pair for storage
+const keyPair = await generateKeyPair();
+const exported = await exportKeyPair(keyPair);
+
+// Store private key locally (NEVER transmit!)
+await secureStorage.store('device-private-key', exported.privateKey);
+
+// Send public key to server (safe to transmit)
+await api.registerPublicKey(exported.publicKey);
+
+// Later: Import keys from storage
+const privateKey = await importPrivateKey(exported.privateKey);
+const publicKey = await importPublicKey(exported.publicKey);
+```
+
+### Security Properties
+
+**Public vs Private Keys:**
+- **Public Key**: Safe to share, used for verification only
+- **Private Key**: Secret, used for signing only, NEVER transmit
+- **Key Separation**: Compromise of public key doesn't expose private key
+
+**PSS Padding:**
+- Random salt (32 bytes) prevents signature malleability
+- Same data produces different signatures (all verify correctly)
+- More secure than PKCS#1 v1.5 (older padding scheme)
+
+**Tamper Detection:**
+```typescript
+// Tampered data fails verification
+const signature = await sign(originalData, privateKey);
+const isValid = await verify(tamperedData, signature, publicKey);
+// isValid === false (MUST fail!)
+```
+
+### Performance Characteristics
+
+RSA-4096 performance on modern hardware:
+
+| Operation | Time | Notes |
+|-----------|------|-------|
+| Key Generation | 100-500ms | One-time during device registration |
+| Signing | 5-20ms | Sign hash (32 bytes), not full data |
+| Verification | 2-10ms | Faster than signing |
+
+**Recommendation**: Sign SHA-256 hash (32 bytes) instead of full backup data for optimal performance.
+
+### Use Cases in ZKEB
+
+**Device Authentication:**
+- Device generates RSA key pair during setup
+- Public key registered with server
+- Device signs requests with private key
+- Server verifies signatures before accepting operations
+
+**Backup Integrity:**
+- Device signs backup hash before upload
+- Server verifies signature with device public key
+- Reject backups with invalid signatures (tampering detected)
+
+**Multi-Device Support:**
+- Each device has unique RSA key pair
+- Server stores public key for each device
+- Signatures identify which device created backup
+- Device revocation: Delete public key from server
+
+---
+
 ## API Reference
 
 ### AES-256-GCM Functions
@@ -409,6 +1085,103 @@ HKDF Expand step - derives output keying material from PRK.
 - `length: number` - Output length in bytes (max 8160)
 
 **Returns:** `Promise<Uint8Array>` - Derived key material
+
+---
+
+### PBKDF2 Functions
+
+#### `deriveKeyFromPassword(password, salt?, iterations?): Promise<DerivedKey>`
+
+Derive encryption key from password using PBKDF2-SHA256.
+
+**Parameters:**
+- `password: string | Uint8Array` - User password (12+ characters recommended)
+- `salt?: Uint8Array` - Optional salt (auto-generated if not provided, 128 bits)
+- `iterations?: number` - Iteration count (default: 600,000 per OWASP 2023)
+
+**Returns:** `Promise<DerivedKey>` - Object containing:
+```typescript
+{
+  key: Uint8Array;        // 256-bit derived encryption key
+  salt: Uint8Array;       // 128-bit salt (store for recovery)
+  iterations: number;     // Iteration count used (store for recovery)
+}
+```
+
+**Throws:**
+- Error if password is empty
+- Error if iterations < 1
+
+**Example:**
+```typescript
+// Basic usage (auto-generate salt, 600k iterations)
+const derived = await deriveKeyFromPassword('my-password');
+
+// Custom salt and iterations
+const salt = generateSalt();
+const derived = await deriveKeyFromPassword('my-password', salt, 1_000_000);
+
+// Account recovery
+const { key: umk, salt } = await deriveKeyFromPassword(userPassword);
+await storage.store('recovery-salt', salt); // Store salt
+```
+
+#### `verifyPassword(password, expectedKey, salt, iterations?): Promise<boolean>`
+
+Verify password produces expected derived key (constant-time comparison).
+
+**Parameters:**
+- `password: string | Uint8Array` - Password to verify
+- `expectedKey: Uint8Array` - Expected derived key (from setup)
+- `salt: Uint8Array` - Salt used during original derivation
+- `iterations?: number` - Iteration count (default: 600,000)
+
+**Returns:** `Promise<boolean>` - True if password correct, false otherwise
+
+**Example:**
+```typescript
+// Setup
+const { key, salt } = await deriveKeyFromPassword('password');
+
+// Verify
+const isValid = await verifyPassword('user-input', key, salt);
+if (isValid) { /* grant access */ }
+```
+
+#### `generateSalt(length?): Uint8Array`
+
+Generate cryptographically secure random salt.
+
+**Parameters:**
+- `length?: number` - Salt length in bytes (default: 16 / 128 bits)
+
+**Returns:** `Uint8Array` - Random salt
+
+**Throws:**
+- Error if length < 8 bytes (64 bits)
+
+**Example:**
+```typescript
+const salt = generateSalt();        // 128-bit salt
+const largeSalt = generateSalt(32); // 256-bit salt
+```
+
+#### `PBKDF2_CONSTANTS`
+
+Exported constants for reference:
+
+```typescript
+{
+  OWASP_2023_ITERATIONS: 600000,    // OWASP recommendation
+  SALT_LENGTH: 16,                  // 128 bits
+  KEY_LENGTH: 32,                   // 256 bits
+  HASH_ALGORITHM: 'SHA-256',        // PRF
+  MIN_PASSWORD_LENGTH: 12,          // Minimum characters
+  PERFORMANCE_TARGET_MS: 200        // Max time for 600k iterations
+}
+```
+
+---
 
 ## Security Considerations
 

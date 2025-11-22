@@ -13,6 +13,7 @@ import type { SessionWithUser } from '../../../lib/api/auth/session'
 process.env.REDIS_URL = 'redis://localhost:6379'
 
 // Shared session store for all tests
+// This must be outside the class because vi.mock is hoisted
 const sessionStore = new Map<string, any>()
 
 // Mock ioredis with shared state
@@ -135,47 +136,47 @@ vi.mock('../../../lib/api/platform/connection-manager', () => ({
 }))
 
 // Mock the redis module to prevent require errors
-vi.mock('../../../lib/api/platform/redis', async (importOriginal) => {
-  const actual = await importOriginal() as any
+vi.mock('../../../lib/api/platform/redis', () => {
+  // Define MockRedisClientWrapper inside factory to avoid hoisting issues
+  class MockRedisClientWrapper {
+    constructor() {}
+    async ping() { return 'PONG' }
+    async healthCheck() { return true }
+    async close() {}
+    getPoolStats() { return { size: 1, available: 1, pending: 0 } }
+    async hset(key: string, field: string, value: string) {
+      // Access sessionStore from parent scope
+      let data = sessionStore.get(key) || {}
+      data[field] = value
+      sessionStore.set(key, data)
+      return 1
+    }
+    async hget(key: string, field: string) {
+      const data = sessionStore.get(key)
+      return data?.[field] || null
+    }
+    async hgetall(key: string) {
+      return sessionStore.get(key) || {}
+    }
+    async del(key: string) {
+      const existed = sessionStore.has(key)
+      sessionStore.delete(key)
+      return existed ? 1 : 0
+    }
+    async expire(key: string, seconds: number) { return 1 }
+    async scan(cursor: string, pattern?: string, count?: number) {
+      const keys = Array.from(sessionStore.keys()).filter(k => {
+        if (!pattern) return true
+        const regex = new RegExp(pattern.replace(/\*/g, '.*'))
+        return regex.test(k)
+      })
+      return ['0', keys] as [string, string[]]
+    }
+  }
+
   return {
-    ...actual,
-    RedisClientWrapper: class {
-      constructor() {}
-      async ping() { return 'PONG' }
-      async healthCheck() { return true }
-      async close() {}
-      getPoolStats() { return { size: 1, available: 1, pending: 0 } }
-      async hset(key: string, field: string, value: string) {
-        let data = sessionStore.get(key) || {}
-        data[field] = value
-        sessionStore.set(key, data)
-        return 1
-      }
-      async hget(key: string, field: string) {
-        const data = sessionStore.get(key)
-        return data?.[field] || null
-      }
-      async hgetall(key: string) {
-        return sessionStore.get(key) || {}
-      }
-      async del(key: string) {
-        const existed = sessionStore.has(key)
-        sessionStore.delete(key)
-        return existed ? 1 : 0
-      }
-      async expire(key: string, seconds: number) { return 1 }
-      async scan(cursor: string, pattern?: string, count?: number) {
-        const keys = Array.from(sessionStore.keys()).filter(k => {
-          if (!pattern) return true
-          const regex = new RegExp(pattern.replace(/\*/g, '.*'))
-          return regex.test(k)
-        })
-        return ['0', keys] as [string, string[]]
-      }
-    },
-    createRedisClient: vi.fn((projectId, options) => {
-      return new (vi.mocked(actual).RedisClientWrapper as any)()
-    }),
+    RedisClientWrapper: MockRedisClientWrapper,
+    createRedisClient: vi.fn(() => new MockRedisClientWrapper()),
   }
 })
 
@@ -187,6 +188,7 @@ vi.mock('../../../lib/api/auth/session', () => ({
 }))
 
 import { sessionCache, validateSessionWithCache } from '../../../lib/api/auth/session-cache'
+import { RedisClientWrapper } from '../../../lib/api/platform/redis'
 
 describe('Session Cache', () => {
   // Sample session data
@@ -212,6 +214,12 @@ describe('Session Cache', () => {
 
     // Clear the in-memory store (shared across all mocks)
     sessionStore.clear()
+
+    // Inject mock Redis client into singleton
+    // The singleton may have been created with this.redis = null, so we inject our mock
+    const mockRedis = new RedisClientWrapper()
+    ;(sessionCache as any).redis = mockRedis
+    ;(sessionCache as any).enabled = true
 
     // Clear mock call history
     vi.clearAllMocks()

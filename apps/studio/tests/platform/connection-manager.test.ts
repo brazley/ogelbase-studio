@@ -161,38 +161,38 @@ describe('DatabaseConnectionManager', () => {
       expect(metrics).toBeDefined()
     })
 
-    it('should record query metrics', () => {
+    it('should record query metrics', async () => {
       const metrics = new DatabaseMetrics()
 
       metrics.recordQuery(DatabaseType.REDIS, Tier.PRO, 0.1, 'get', true)
       metrics.recordQuery(DatabaseType.REDIS, Tier.PRO, 0.2, 'set', false)
 
-      const metricsOutput = metrics.getMetrics()
+      const metricsOutput = await metrics.getMetrics()
       expect(metricsOutput).toContain('db_queries_total')
       expect(metricsOutput).toContain('db_query_duration_seconds')
     })
 
-    it('should record error metrics', () => {
+    it('should record error metrics', async () => {
       const metrics = new DatabaseMetrics()
 
       metrics.recordError(DatabaseType.MONGODB, Tier.FREE, 'ConnectionError')
 
-      const metricsOutput = metrics.getMetrics()
+      const metricsOutput = await metrics.getMetrics()
       expect(metricsOutput).toContain('db_errors_total')
     })
 
-    it('should record circuit breaker state', () => {
+    it('should record circuit breaker state', async () => {
       const metrics = new DatabaseMetrics()
 
       metrics.recordCircuitState(DatabaseType.REDIS, 'test-project', 'open')
       metrics.recordCircuitState(DatabaseType.REDIS, 'test-project', 'closed')
 
-      const metricsOutput = metrics.getMetrics()
+      const metricsOutput = await metrics.getMetrics()
       expect(metricsOutput).toContain('circuit_breaker_state')
     })
 
-    it('should get metrics from manager', () => {
-      const metricsOutput = manager.getMetrics()
+    it('should get metrics from manager', async () => {
+      const metricsOutput = await manager.getMetrics()
       expect(metricsOutput).toBeDefined()
       expect(typeof metricsOutput).toBe('string')
     })
@@ -212,12 +212,16 @@ describe('DatabaseConnectionManager', () => {
         async () => 'success'
       )
 
+      // Verify metadata exists before closing
+      const metadataBefore = manager.getConnectionMetadata(projectId, dbType)
+      expect(metadataBefore).toBeDefined()
+
       // Close the connection
       await manager.closeConnection(projectId, dbType)
 
-      // Metadata should be removed
-      const metadata = manager.getConnectionMetadata(projectId, dbType)
-      expect(metadata).toBeUndefined()
+      // Metadata should be removed after closing
+      const metadataAfter = manager.getConnectionMetadata(projectId, dbType)
+      expect(metadataAfter).toBeUndefined()
     })
 
     it('should close idle connections', async () => {

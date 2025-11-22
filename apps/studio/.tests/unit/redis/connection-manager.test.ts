@@ -15,35 +15,87 @@ vi.mock('ioredis', () => {
   const store = new Map<string, string>()
   const hashStore = new Map<string, Record<string, string>>()
 
-  const RedisMock = vi.fn()
-  RedisMock.prototype.ping = vi.fn().mockResolvedValue('PONG')
-  RedisMock.prototype.get = vi.fn((key: string) => Promise.resolve(store.get(key) || null))
-  RedisMock.prototype.set = vi.fn((key: string, value: string, ...args: any[]) => {
+  const RedisMock = vi.fn(function(this: any, connectionStringOrOptions?: string | object) {
+    // Check if connection string is invalid
+    const connectionString = typeof connectionStringOrOptions === 'string'
+      ? connectionStringOrOptions
+      : (connectionStringOrOptions as any)?.host || ''
+    const isInvalidHost = connectionString.includes('invalid-host')
+    this._isInvalid = isInvalidHost
+  })
+
+  RedisMock.prototype.ping = vi.fn(function(this: any) {
+    if (this._isInvalid) {
+      return Promise.reject(new Error('Connection refused'))
+    }
+    return Promise.resolve('PONG')
+  })
+
+  RedisMock.prototype.get = vi.fn(function(this: any, key: string) {
+    if (this._isInvalid) {
+      return Promise.reject(new Error('Connection refused'))
+    }
+    return Promise.resolve(store.get(key) || null)
+  })
+
+  RedisMock.prototype.set = vi.fn(function(this: any, key: string, value: string, ...args: any[]) {
+    if (this._isInvalid) {
+      return Promise.reject(new Error('Connection refused'))
+    }
     store.set(key, value)
     return Promise.resolve('OK')
   })
-  RedisMock.prototype.del = vi.fn((...keys: string[]) => {
+
+  RedisMock.prototype.del = vi.fn(function(this: any, ...keys: string[]) {
+    if (this._isInvalid) {
+      return Promise.reject(new Error('Connection refused'))
+    }
     let deleted = 0
     for (const key of keys) {
       if (store.delete(key) || hashStore.delete(key)) deleted++
     }
     return Promise.resolve(deleted)
   })
-  RedisMock.prototype.hset = vi.fn((key: string, field: string, value: string) => {
+
+  RedisMock.prototype.hset = vi.fn(function(this: any, key: string, field: string, value: string) {
+    if (this._isInvalid) {
+      return Promise.reject(new Error('Connection refused'))
+    }
     const hash = hashStore.get(key) || {}
     hash[field] = value
     hashStore.set(key, hash)
     return Promise.resolve(1)
   })
-  RedisMock.prototype.hget = vi.fn((key: string, field: string) => {
+
+  RedisMock.prototype.hget = vi.fn(function(this: any, key: string, field: string) {
+    if (this._isInvalid) {
+      return Promise.reject(new Error('Connection refused'))
+    }
     const hash = hashStore.get(key)
     return Promise.resolve(hash?.[field] || null)
   })
-  RedisMock.prototype.hgetall = vi.fn((key: string) => {
+
+  RedisMock.prototype.hgetall = vi.fn(function(this: any, key: string) {
+    if (this._isInvalid) {
+      return Promise.reject(new Error('Connection refused'))
+    }
     return Promise.resolve(hashStore.get(key) || {})
   })
-  RedisMock.prototype.ttl = vi.fn().mockResolvedValue(10)
-  RedisMock.prototype.quit = vi.fn().mockResolvedValue('OK')
+
+  RedisMock.prototype.ttl = vi.fn(function(this: any) {
+    if (this._isInvalid) {
+      return Promise.reject(new Error('Connection refused'))
+    }
+    return Promise.resolve(10)
+  })
+
+  RedisMock.prototype.quit = vi.fn(function(this: any) {
+    if (this._isInvalid) {
+      return Promise.resolve('OK')
+    }
+    return Promise.resolve('OK')
+  })
+
   RedisMock.prototype.disconnect = vi.fn()
 
   return {

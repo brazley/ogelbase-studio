@@ -311,6 +311,17 @@ describe('AES-256-GCM', () => {
 
       expect(decrypted).toBe(plaintext);
     });
+
+    test('decryptString throws on invalid UTF-8', async () => {
+      const key = await generateKey();
+
+      // Create encrypted data containing invalid UTF-8 bytes
+      const invalidUtf8 = new Uint8Array([0xff, 0xfe, 0xfd, 0xfc]);
+      const encrypted = await encrypt(invalidUtf8, key);
+
+      await expect(decryptString(encrypted, key)).rejects.toThrow(AESGCMError);
+      await expect(decryptString(encrypted, key)).rejects.toThrow(/not valid UTF-8/i);
+    });
   });
 
   describe('Error Handling', () => {
@@ -335,7 +346,7 @@ describe('AES-256-GCM', () => {
       await expect(decrypt(encrypted, key)).rejects.toThrow(/invalid nonce length/i);
     });
 
-    test('AESGCMError includes cause', async () => {
+    test('AESGCMError has correct properties', async () => {
       const badKey = new Uint8Array(16);
       const plaintext = new TextEncoder().encode('test');
 
@@ -344,7 +355,8 @@ describe('AES-256-GCM', () => {
         fail('Should have thrown');
       } catch (error) {
         expect(error).toBeInstanceOf(AESGCMError);
-        expect((error as AESGCMError).cause).toBeDefined();
+        expect((error as AESGCMError).message).toContain('Invalid key length');
+        expect((error as AESGCMError).name).toBe('AESGCMError');
       }
     });
   });

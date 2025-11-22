@@ -267,7 +267,8 @@ export async function encryptString(plaintext, key, additionalData) {
 export async function decryptString(encrypted, key) {
     const decrypted = await decrypt(encrypted, key);
     try {
-        return new TextDecoder().decode(decrypted);
+        // Use fatal mode to throw on invalid UTF-8 instead of replacing with �
+        return new TextDecoder('utf-8', { fatal: true }).decode(decrypted);
     }
     catch (error) {
         throw new AESGCMError('Decrypted data is not valid UTF-8', error);
