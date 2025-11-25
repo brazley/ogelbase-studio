@@ -5,11 +5,13 @@ FROM oven/bun:1-alpine
 
 WORKDIR /app
 
-# Copy package files first for layer caching
+# Copy all package files first for layer caching
 COPY package.json bun.lock* ./
+COPY packages/ogelfy/package.json ./packages/ogelfy/
 
-# Install dependencies
+# Install dependencies for both packages
 RUN bun install --production
+RUN cd packages/ogelfy && bun install --production
 
 # Copy source code
 COPY src/ ./src/
