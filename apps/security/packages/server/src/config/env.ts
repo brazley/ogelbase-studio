@@ -9,8 +9,8 @@ const envSchema = z.object({
   JWT_SECRET: z.string().min(32),
   SUPABASE_SERVICE_KEY: z.string().min(1),
 
-  // Database
-  DATABASE_URL: z.string().url(),
+  // Database (postgres:// or postgresql://)
+  DATABASE_URL: z.string().min(1),
 
   // Internal Services (Railway)
   AUTH_URL: z.string().url().default('http://supabase-auth.railway.internal:9999'),
