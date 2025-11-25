@@ -15,15 +15,26 @@
 
 import winston from 'winston'
 import { getCorrelationId } from './correlation'
+import { getTraceContext } from './tracing'
 
 /**
- * Custom format to inject correlation ID into every log entry
+ * Custom format to inject correlation ID and trace context into every log entry
  */
 const correlationFormat = winston.format((info) => {
   const correlationId = getCorrelationId()
   if (correlationId) {
     info.correlation_id = correlationId
   }
+
+  // Add trace context for log-trace correlation
+  const traceContext = getTraceContext()
+  if (traceContext.trace_id) {
+    info.trace_id = traceContext.trace_id
+  }
+  if (traceContext.span_id) {
+    info.span_id = traceContext.span_id
+  }
+
   return info
 })
 
@@ -54,15 +65,18 @@ const developmentFormat = winston.format.combine(
   redisContextFormat(),
   winston.format.colorize({ all: true }),
   winston.format.printf((info) => {
-    const { timestamp, level, message, service, correlation_id, ...meta } = info
+    const { timestamp, level, message, service, correlation_id, trace_id, span_id, ...meta } = info
 
     // Build correlation ID display
     const corrId = correlation_id ? ` [${String(correlation_id).substring(0, 8)}]` : ''
 
+    // Build trace ID display
+    const traceId = trace_id ? ` [trace:${String(trace_id).substring(0, 8)}]` : ''
+
     // Build metadata display
     const metaStr = Object.keys(meta).length > 0 ? ` ${JSON.stringify(meta)}` : ''
 
-    return `${timestamp} ${level} [${service}]${corrId}: ${message}${metaStr}`
+    return `${timestamp} ${level} [${service}]${corrId}${traceId}: ${message}${metaStr}`
   })
 )
 

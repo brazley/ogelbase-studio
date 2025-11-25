@@ -11,6 +11,7 @@ import {
 } from './connection-manager'
 import { logger, logRedisOperation, logPoolEvent } from '../observability/logger'
 import { getHotkeyDetector } from '../cache/hotkey-detection'
+import { traceRedisOperation, tracePoolOperation } from '../observability/tracing'
 
 /**
  * Redis connection pool implementation
@@ -188,32 +189,46 @@ export class RedisConnectionPool implements ConnectionPool<RedisClient> {
   }
 
   async acquire(): Promise<RedisClient> {
-    const startTime = Date.now()
-    try {
-      const client = await this.pool.acquire()
-      const duration = Date.now() - startTime
+    return tracePoolOperation(
+      'acquire',
+      {
+        'pool.size': this.pool.size,
+        'pool.available': this.pool.available,
+        'pool.pending': this.pool.pending,
+      },
+      async (span) => {
+        const startTime = Date.now()
+        try {
+          const client = await this.pool.acquire()
+          const duration = Date.now() - startTime
 
-      logPoolEvent({
-        event: 'acquire',
-        duration_ms: duration,
-        pool_size: this.pool.size,
-        pool_available: this.pool.available,
-        pool_pending: this.pool.pending,
-      })
+          span.setAttribute('pool.acquire.duration_ms', duration)
+          span.setAttribute('pool.size.after', this.pool.size)
+          span.setAttribute('pool.available.after', this.pool.available)
 
-      return client
-    } catch (error) {
-      const duration = Date.now() - startTime
-      logRedisOperation({
-        operation: 'pool_acquire',
-        message: 'Failed to acquire connection from pool',
-        level: 'error',
-        duration_ms: duration,
-        pool_pending: this.pool.pending,
-        error: error as Error,
-      })
-      throw error
-    }
+          logPoolEvent({
+            event: 'acquire',
+            duration_ms: duration,
+            pool_size: this.pool.size,
+            pool_available: this.pool.available,
+            pool_pending: this.pool.pending,
+          })
+
+          return client
+        } catch (error) {
+          const duration = Date.now() - startTime
+          logRedisOperation({
+            operation: 'pool_acquire',
+            message: 'Failed to acquire connection from pool',
+            level: 'error',
+            duration_ms: duration,
+            pool_pending: this.pool.pending,
+            error: error as Error,
+          })
+          throw error
+        }
+      }
+    )
   }
 
   release(connection: RedisClient): void {
@@ -357,7 +372,21 @@ export class RedisClientWrapper {
     const detector = getHotkeyDetector()
     detector.track(key)
 
-    return this.execute('get', async (client) => client.get(key), { key })
+    return traceRedisOperation(
+      'get',
+      {
+        'redis.key': key,
+        'redis.command': 'GET',
+      },
+      async (span) => {
+        const result = await this.execute('get', async (client) => client.get(key), { key })
+
+        span.setAttribute('redis.cache.hit', result !== null)
+        span.setAttribute('redis.key.exists', result !== null)
+
+        return result
+      }
+    )
   }
 
   /**
@@ -368,15 +397,30 @@ export class RedisClientWrapper {
     const detector = getHotkeyDetector()
     detector.track(key)
 
-    return this.execute(
+    return traceRedisOperation(
       'set',
-      async (client) => {
-        if (expirationSeconds) {
-          return client.set(key, value, 'EX', expirationSeconds)
-        }
-        return client.set(key, value)
+      {
+        'redis.key': key,
+        'redis.command': 'SET',
+        'redis.value.size': value.length,
+        ...(expirationSeconds ? { 'redis.ttl': expirationSeconds } : {}),
       },
-      { key, ttl_seconds: expirationSeconds }
+      async (span) => {
+        const result = await this.execute(
+          'set',
+          async (client) => {
+            if (expirationSeconds) {
+              return client.set(key, value, 'EX', expirationSeconds)
+            }
+            return client.set(key, value)
+          },
+          { key, ttl_seconds: expirationSeconds }
+        )
+
+        span.setAttribute('redis.set.success', true)
+
+        return result
+      }
     )
   }
 
@@ -494,7 +538,22 @@ export class RedisClientWrapper {
     const detector = getHotkeyDetector()
     detector.track(key)
 
-    return this.execute('hset', async (client) => client.hset(key, field, value), { key, field })
+    return traceRedisOperation(
+      'hset',
+      {
+        'redis.key': key,
+        'redis.command': 'HSET',
+        'redis.hash.field': field,
+        'redis.value.size': value.length,
+      },
+      async (span) => {
+        const result = await this.execute('hset', async (client) => client.hset(key, field, value), { key, field })
+
+        span.setAttribute('redis.hash.field.created', result === 1)
+
+        return result
+      }
+    )
   }
 
   /**
@@ -505,7 +564,21 @@ export class RedisClientWrapper {
     const detector = getHotkeyDetector()
     detector.track(key)
 
-    return this.execute('hget', async (client) => client.hget(key, field), { key, field })
+    return traceRedisOperation(
+      'hget',
+      {
+        'redis.key': key,
+        'redis.command': 'HGET',
+        'redis.hash.field': field,
+      },
+      async (span) => {
+        const result = await this.execute('hget', async (client) => client.hget(key, field), { key, field })
+
+        span.setAttribute('redis.hash.field.exists', result !== null)
+
+        return result
+      }
+    )
   }
 
   /**
@@ -516,7 +589,22 @@ export class RedisClientWrapper {
     const detector = getHotkeyDetector()
     detector.track(key)
 
-    return this.execute('hgetall', async (client) => client.hgetall(key), { key })
+    return traceRedisOperation(
+      'hgetall',
+      {
+        'redis.key': key,
+        'redis.command': 'HGETALL',
+      },
+      async (span) => {
+        const result = await this.execute('hgetall', async (client) => client.hgetall(key), { key })
+
+        const fieldCount = Object.keys(result).length
+        span.setAttribute('redis.hash.field.count', fieldCount)
+        span.setAttribute('redis.hash.exists', fieldCount > 0)
+
+        return result
+      }
+    )
   }
 
   /**

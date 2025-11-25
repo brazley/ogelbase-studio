@@ -66,13 +66,14 @@ CMD ["pnpm", "dev:studio"]
 FROM dev AS builder
 ENV NODE_OPTIONS="--max-old-space-size=8192"
 
-# Re-declare build arguments (they don't persist across stages)
-ARG NEXT_PUBLIC_IS_PLATFORM
-ARG NEXT_PUBLIC_SUPABASE_URL
-ARG NEXT_PUBLIC_GOTRUE_URL
-ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
-ARG NEXT_PUBLIC_API_URL
-ARG NEXT_PUBLIC_SITE_URL
+# Re-declare build arguments with Railway defaults (they don't persist across stages)
+# These can be overridden via --build-arg or Railway Build Arguments
+ARG NEXT_PUBLIC_IS_PLATFORM=true
+ARG NEXT_PUBLIC_SUPABASE_URL=https://kong-production-80c6.up.railway.app
+ARG NEXT_PUBLIC_GOTRUE_URL=https://kong-production-80c6.up.railway.app/auth/v1
+ARG NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzYzNTI4NDAwLCJleHAiOjE5MjEyOTQ4MDB9.2XTVn3nRxkDP8C_AfNNZWSXiEHBf5ELxZphZC4jg-ig
+ARG NEXT_PUBLIC_API_URL=https://studio-production-cfcd.up.railway.app/api
+ARG NEXT_PUBLIC_SITE_URL=https://studio-production-cfcd.up.railway.app
 
 # Pass build args as environment variables for Next.js build
 # These will be embedded into the JavaScript bundle at build time

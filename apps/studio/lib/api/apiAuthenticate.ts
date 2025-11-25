@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import type { ResponseError } from 'types'
 import { queryPlatformDatabase } from './platform/database'
-import * as crypto from 'crypto'
+import { jwtVerify } from 'jose'
 
 /**
  * User context returned by apiAuthenticate
@@ -42,15 +42,40 @@ export async function apiAuthenticate(
       return { error: new Error('Empty authorization token') }
     }
 
-    // Hash the token to match database storage
-    const tokenHash = crypto.createHash('sha256').update(token).digest('hex')
+    // Get JWT secret from environment
+    const jwtSecret = process.env.SUPABASE_JWT_SECRET
+    if (!jwtSecret) {
+      console.error('[apiAuthenticate] SUPABASE_JWT_SECRET not configured')
+      return { error: new Error('JWT secret not configured') }
+    }
 
-    // Query session from platform.user_sessions
-    const { data: sessions, error: dbError } = await queryPlatformDatabase<{
-      session_id: string
+    // Decode and verify the GoTrue JWT
+    let userId: string
+    try {
+      const secret = new TextEncoder().encode(jwtSecret)
+      const { payload } = await jwtVerify(token, secret, {
+        audience: 'authenticated'
+      })
+
+      // Extract user ID from JWT payload
+      userId = payload.sub as string
+      if (!userId) {
+        return { error: new Error('Invalid JWT: missing user ID') }
+      }
+    } catch (jwtError) {
+      console.error('[apiAuthenticate] JWT verification failed:', jwtError)
+      if (jwtError instanceof Error) {
+        if (jwtError.message.includes('expired')) {
+          return { error: new Error('Token has expired') }
+        }
+        return { error: new Error('Invalid or malformed token') }
+      }
+      return { error: new Error('JWT verification failed') }
+    }
+
+    // Look up user in platform.users table
+    const { data: users, error: dbError } = await queryPlatformDatabase<{
       user_id: string
-      expires_at: string
-      last_activity_at: string
       email: string
       first_name: string | null
       last_name: string | null
@@ -58,22 +83,17 @@ export async function apiAuthenticate(
     }>({
       query: `
         SELECT
-          s.id as session_id,
-          s.user_id,
-          s.expires_at,
-          s.last_activity_at,
-          u.email,
-          u.first_name,
-          u.last_name,
-          u.username
-        FROM platform.user_sessions s
-        JOIN platform.users u ON s.user_id = u.id
-        WHERE s.token = $1
-          AND s.expires_at > NOW()
-          AND u.deleted_at IS NULL
-          AND u.banned_until IS NULL
+          id as user_id,
+          email,
+          first_name,
+          last_name,
+          username
+        FROM platform.users
+        WHERE id = $1
+          AND deleted_at IS NULL
+          AND (banned_until IS NULL OR banned_until < NOW())
       `,
-      parameters: [tokenHash]
+      parameters: [userId]
     })
 
     if (dbError) {
@@ -81,28 +101,20 @@ export async function apiAuthenticate(
       return { error: new Error('Database error during authentication') }
     }
 
-    if (!sessions || sessions.length === 0) {
-      return { error: new Error('Invalid or expired session') }
+    if (!users || users.length === 0) {
+      return { error: new Error('User not found or account disabled') }
     }
 
-    const session = sessions[0]
+    const user = users[0]
 
-    // Update last_activity_at (fire and forget - don't wait)
-    queryPlatformDatabase({
-      query: 'UPDATE platform.user_sessions SET last_activity_at = NOW() WHERE id = $1',
-      parameters: [session.session_id]
-    }).catch(error => {
-      console.error('[apiAuthenticate] Failed to update last_activity_at:', error)
-    })
-
-    // Return user context
+    // Return user context (sessionId is the user ID for JWT-based auth)
     return {
-      userId: session.user_id,
-      email: session.email,
-      firstName: session.first_name,
-      lastName: session.last_name,
-      username: session.username,
-      sessionId: session.session_id
+      userId: user.user_id,
+      email: user.email,
+      firstName: user.first_name,
+      lastName: user.last_name,
+      username: user.username,
+      sessionId: userId // Use userId as sessionId for backwards compatibility
     }
   } catch (error) {
     console.error('[apiAuthenticate] Unexpected error:', error)
@@ -120,25 +132,29 @@ export async function fetchUserClaims(req: NextApiRequest): Promise<{ sub: strin
     throw new Error('missing access token')
   }
 
-  // For backwards compatibility, we'll still validate the token
-  const tokenHash = crypto.createHash('sha256').update(token).digest('hex')
-
-  const { data: sessions, error } = await queryPlatformDatabase<{ user_id: string }>({
-    query: `
-      SELECT user_id
-      FROM platform.user_sessions
-      WHERE token = $1 AND expires_at > NOW()
-    `,
-    parameters: [tokenHash]
-  })
-
-  if (error) {
-    throw error
+  // Get JWT secret from environment
+  const jwtSecret = process.env.SUPABASE_JWT_SECRET
+  if (!jwtSecret) {
+    throw new Error('JWT secret not configured')
   }
 
-  if (!sessions || sessions.length === 0) {
-    throw new Error('The user does not exist')
-  }
+  try {
+    // Decode and verify the GoTrue JWT
+    const secret = new TextEncoder().encode(jwtSecret)
+    const { payload } = await jwtVerify(token, secret, {
+      audience: 'authenticated'
+    })
 
-  return { sub: sessions[0].user_id }
+    const userId = payload.sub as string
+    if (!userId) {
+      throw new Error('Invalid JWT: missing user ID')
+    }
+
+    return { sub: userId }
+  } catch (jwtError) {
+    if (jwtError instanceof Error) {
+      throw new Error(`JWT verification failed: ${jwtError.message}`)
+    }
+    throw new Error('JWT verification failed')
+  }
 }

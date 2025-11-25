@@ -21,6 +21,7 @@ import { Tier } from '../platform/connection-manager'
 import { validateSession as validateSessionFromDB, revokeSession, revokeAllUserSessions } from './session'
 import type { SessionWithUser } from './session'
 import { logger, logCacheOperation, logRedisOperation } from '../observability/logger'
+import { traceSessionCache } from '../observability/tracing'
 
 // Cache configuration
 const CACHE_CONFIG = {
@@ -185,61 +186,88 @@ class SessionCache {
       return null
     }
 
-    try {
-      const key = this.getCacheKey(token)
-      const data = await this.redis.hgetall(key)
+    return traceSessionCache(
+      'get',
+      {
+        'cache.key.pattern': 'session:*',
+        'cache.backend': 'redis',
+      },
+      async (span) => {
+        try {
+          const key = this.getCacheKey(token)
+          const data = await this.redis!.hgetall(key)
 
-      if (!data || Object.keys(data).length === 0) {
-        this.metrics.recordMiss()
-        logCacheOperation({
-          operation: 'get',
-          cache_hit: false,
-          key,
-          message: 'Cache miss - key not found',
-        })
-        return null
+          if (!data || Object.keys(data).length === 0) {
+            this.metrics.recordMiss()
+            span.setAttribute('cache.hit', false)
+            span.setAttribute('cache.miss.reason', 'key_not_found')
+
+            logCacheOperation({
+              operation: 'get',
+              cache_hit: false,
+              key,
+              message: 'Cache miss - key not found',
+            })
+            return null
+          }
+
+          // Verify token matches (security check)
+          if (data.token !== token) {
+            span.setAttribute('cache.hit', false)
+            span.setAttribute('cache.miss.reason', 'token_mismatch')
+            span.setAttribute('cache.security.issue', true)
+
+            logRedisOperation({
+              operation: 'cache_security_check',
+              message: 'Token mismatch in cache, potential security issue',
+              level: 'warn',
+              key,
+            })
+            await this.invalidateSession(token)
+            this.metrics.recordMiss()
+            return null
+          }
+
+          // Check if session is expired
+          const expiresAt = new Date(data.expiresAt)
+          if (expiresAt < new Date()) {
+            span.setAttribute('cache.hit', false)
+            span.setAttribute('cache.miss.reason', 'expired')
+            span.setAttribute('cache.session.expired_at', data.expiresAt)
+
+            logCacheOperation({
+              operation: 'get',
+              cache_hit: false,
+              key,
+              message: 'Cached session expired',
+              expires_at: data.expiresAt,
+            })
+            await this.invalidateSession(token)
+            this.metrics.recordMiss()
+            return null
+          }
+
+          this.metrics.recordHit()
+          span.setAttribute('cache.hit', true)
+          span.setAttribute('cache.session.user_id', data.userId)
+          span.setAttribute('cache.session.id', data.id)
+
+          return this.deserializeSession(data)
+        } catch (error) {
+          span.setAttribute('cache.hit', false)
+          span.setAttribute('cache.error', true)
+
+          logRedisOperation({
+            operation: 'cache_get',
+            message: 'Error reading from cache',
+            level: 'error',
+            error: error as Error,
+          })
+          this.metrics.recordError()
+          return null
+        }
       }
-
-      // Verify token matches (security check)
-      if (data.token !== token) {
-        logRedisOperation({
-          operation: 'cache_security_check',
-          message: 'Token mismatch in cache, potential security issue',
-          level: 'warn',
-          key,
-        })
-        await this.invalidateSession(token)
-        this.metrics.recordMiss()
-        return null
-      }
-
-      // Check if session is expired
-      const expiresAt = new Date(data.expiresAt)
-      if (expiresAt < new Date()) {
-        logCacheOperation({
-          operation: 'get',
-          cache_hit: false,
-          key,
-          message: 'Cached session expired',
-          expires_at: data.expiresAt,
-        })
-        await this.invalidateSession(token)
-        this.metrics.recordMiss()
-        return null
-      }
-
-      this.metrics.recordHit()
-      return this.deserializeSession(data)
-    } catch (error) {
-      logRedisOperation({
-        operation: 'cache_get',
-        message: 'Error reading from cache',
-        level: 'error',
-        error: error as Error,
-      })
-      this.metrics.recordError()
-      return null
-    }
+    )
   }
 
   /**
@@ -250,37 +278,54 @@ class SessionCache {
       return
     }
 
-    try {
-      const key = this.getCacheKey(token)
-      const data = this.serializeSession(session)
+    return traceSessionCache(
+      'set',
+      {
+        'cache.key.pattern': 'session:*',
+        'cache.backend': 'redis',
+        'cache.ttl': CACHE_CONFIG.sessionTTL,
+        'cache.session.user_id': session.userId,
+        'cache.session.id': session.id,
+      },
+      async (span) => {
+        try {
+          const key = this.getCacheKey(token)
+          const data = this.serializeSession(session)
 
-      // Store as hash for efficient field access
-      for (const [field, value] of Object.entries(data)) {
-        await this.redis.hset(key, field, value)
+          // Store as hash for efficient field access
+          for (const [field, value] of Object.entries(data)) {
+            await this.redis!.hset(key, field, value)
+          }
+
+          // Set TTL
+          await this.redis!.expire(key, CACHE_CONFIG.sessionTTL)
+
+          span.setAttribute('cache.set.success', true)
+          span.setAttribute('cache.fields.count', Object.keys(data).length)
+
+          logCacheOperation({
+            operation: 'set',
+            key,
+            user_id: session.userId,
+            session_id: session.id,
+            message: 'Session cached successfully',
+            ttl_seconds: CACHE_CONFIG.sessionTTL,
+          })
+        } catch (error) {
+          span.setAttribute('cache.set.success', false)
+
+          logRedisOperation({
+            operation: 'cache_set',
+            message: 'Error storing in cache',
+            level: 'error',
+            user_id: session.userId,
+            session_id: session.id,
+            error: error as Error,
+          })
+          this.metrics.recordError()
+        }
       }
-
-      // Set TTL
-      await this.redis.expire(key, CACHE_CONFIG.sessionTTL)
-
-      logCacheOperation({
-        operation: 'set',
-        key,
-        user_id: session.userId,
-        session_id: session.id,
-        message: 'Session cached successfully',
-        ttl_seconds: CACHE_CONFIG.sessionTTL,
-      })
-    } catch (error) {
-      logRedisOperation({
-        operation: 'cache_set',
-        message: 'Error storing in cache',
-        level: 'error',
-        user_id: session.userId,
-        session_id: session.id,
-        error: error as Error,
-      })
-      this.metrics.recordError()
-    }
+    )
   }
 
   /**
@@ -291,25 +336,39 @@ class SessionCache {
       return
     }
 
-    try {
-      const key = this.getCacheKey(token)
-      await this.redis.del(key)
-      this.metrics.recordInvalidation()
+    return traceSessionCache(
+      'invalidate',
+      {
+        'cache.key.pattern': 'session:*',
+        'cache.backend': 'redis',
+        'cache.operation': 'delete',
+      },
+      async (span) => {
+        try {
+          const key = this.getCacheKey(token)
+          await this.redis!.del(key)
+          this.metrics.recordInvalidation()
 
-      logCacheOperation({
-        operation: 'invalidate',
-        key,
-        message: 'Session invalidated from cache',
-      })
-    } catch (error) {
-      logRedisOperation({
-        operation: 'cache_invalidate',
-        message: 'Error invalidating cache',
-        level: 'error',
-        error: error as Error,
-      })
-      this.metrics.recordError()
-    }
+          span.setAttribute('cache.invalidate.success', true)
+
+          logCacheOperation({
+            operation: 'invalidate',
+            key,
+            message: 'Session invalidated from cache',
+          })
+        } catch (error) {
+          span.setAttribute('cache.invalidate.success', false)
+
+          logRedisOperation({
+            operation: 'cache_invalidate',
+            message: 'Error invalidating cache',
+            level: 'error',
+            error: error as Error,
+          })
+          this.metrics.recordError()
+        }
+      }
+    )
   }
 
   /**

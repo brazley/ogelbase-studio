@@ -22,6 +22,7 @@ import {
   cn,
 } from 'ui'
 import { FormItemLayout } from 'ui-patterns/form/FormItemLayout/FormItemLayout'
+import { gotrueClient } from 'common'
 
 const schema = z.object({
   email: z.string().min(1, 'Email is required').email('Must be a valid email'),
@@ -83,21 +84,22 @@ export const SignInForm = () => {
     }
 
     try {
-      const response = await fetch('/api/auth/signin', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, rememberMe }),
+      // Use GoTrue client for authentication
+      const { data, error } = await gotrueClient.signInWithPassword({
+        email,
+        password,
       })
 
-      const data = await response.json()
-
-      if (!response.ok) {
+      if (error) {
         // Reset captcha on error
         setCaptchaToken(null)
         captchaRef.current?.resetCaptcha()
 
-        // Handle rate limiting with countdown
-        if (response.status === 429) {
+        // Map GoTrue errors to UI
+        const errorMessage = error.message.toLowerCase()
+
+        // Handle rate limiting
+        if (error.status === 429 || errorMessage.includes('too many')) {
           const retryAfterMinutes = 15
           setRateLimitSeconds(retryAfterMinutes * 60)
           setApiError(`Too many sign-in attempts. Please try again in ${retryAfterMinutes} minutes.`)
@@ -107,13 +109,8 @@ export const SignInForm = () => {
         }
 
         // Handle invalid credentials
-        if (response.status === 401) {
-          const message = data.code === 'ACCOUNT_DELETED'
-            ? 'This account has been deleted'
-            : data.code === 'NO_PASSWORD_AUTH'
-            ? 'Password authentication not configured for this account'
-            : 'Email or password is incorrect'
-
+        if (error.status === 400 || errorMessage.includes('invalid') || errorMessage.includes('credentials')) {
+          const message = 'Email or password is incorrect'
           setApiError(message)
           form.setError('email', { message: 'Invalid credentials' })
           form.setError('password', { message: 'Invalid credentials' })
@@ -121,49 +118,20 @@ export const SignInForm = () => {
           return
         }
 
-        // Handle banned account
-        if (response.status === 403) {
-          setApiError(data.error || 'Account is banned')
-          toast.error(data.error)
+        // Handle email not confirmed
+        if (errorMessage.includes('email not confirmed')) {
+          setApiError('Please verify your email address before signing in.')
+          toast.error('Email not confirmed. Please check your inbox.')
           return
         }
 
-        // Handle validation errors
-        if (response.status === 400) {
-          if (data.details) {
-            Object.entries(data.details).forEach(([field, errors]) => {
-              if (Array.isArray(errors) && errors.length > 0) {
-                form.setError(field as keyof FormValues, { message: errors[0] })
-              }
-            })
-          }
-          setApiError('Please check your information and try again.')
-          toast.error('Validation failed. Please check your input.')
-          return
-        }
-
-        // Handle server errors
-        if (response.status >= 500) {
-          setApiError('Server error. Please try again later.')
-          toast.error('Server error. Please try again later.')
-          return
-        }
-
-        // Generic error
-        setApiError(data.error || 'Unable to sign in. Please try again.')
-        toast.error(data.error || 'Unable to sign in.')
+        // Generic error from GoTrue
+        setApiError(error.message || 'Unable to sign in. Please try again.')
+        toast.error(error.message || 'Unable to sign in.')
         return
       }
 
-      // Success - store token and redirect
-      const { token: authToken, user, expires_at } = data
-
-      // Store in localStorage or sessionStorage based on rememberMe
-      const storage = rememberMe ? localStorage : sessionStorage
-      storage.setItem('auth_token', authToken)
-      storage.setItem('user', JSON.stringify(user))
-      storage.setItem('token_expires_at', expires_at)
-
+      // Success - GoTrue client handles token storage automatically
       toast.success('Signed in successfully!')
 
       // Redirect to dashboard or return URL

@@ -1,0 +1,154 @@
+_format_version: "3.0"
+
+# Kong Declarative Configuration for Railway
+# This config is loaded via KONG_DECLARATIVE_CONFIG environment variable
+
+services:
+  - name: ogelfy-api
+    # Railway service URL - uses Railway's private networking
+    # Format: https://{service-name}.railway.internal or public URL
+    url: ${OGELFY_URL}
+    protocol: http
+    retries: 3
+    connect_timeout: 5000
+    write_timeout: 60000
+    read_timeout: 60000
+
+    routes:
+      - name: api-routes
+        paths:
+          - /api
+        strip_path: false
+        preserve_host: false
+        protocols:
+          - http
+          - https
+        methods:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+          - PATCH
+          - OPTIONS
+
+      - name: health-route
+        paths:
+          - /health
+        strip_path: false
+        protocols:
+          - http
+          - https
+        methods:
+          - GET
+
+    # Load balancing configuration
+    # Railway doesn't provide .railway.internal DNS yet, so we use public URLs
+    # Each Ogelfy instance is a separate Railway service
+    upstreams:
+      - name: ogelfy-upstream
+        algorithm: round-robin
+        hash_on: none
+        hash_fallback: none
+        healthchecks:
+          active:
+            type: http
+            http_path: /health
+            timeout: 1
+            concurrency: 10
+            healthy:
+              interval: 5
+              http_statuses: [200, 302]
+              successes: 2
+            unhealthy:
+              interval: 3
+              http_statuses: [429, 500, 503]
+              tcp_failures: 3
+              timeouts: 3
+              http_failures: 3
+          passive:
+            type: http
+            healthy:
+              http_statuses: [200, 201, 202, 203, 204, 205, 206, 207, 208, 226, 300, 301, 302, 303, 304, 305, 306, 307, 308]
+              successes: 5
+            unhealthy:
+              http_statuses: [429, 500, 503]
+              tcp_failures: 2
+              timeouts: 7
+              http_failures: 5
+
+# Upstream targets (Ogelfy instances)
+# These get populated via environment variables at runtime
+upstreams:
+  - name: ogelfy-upstream
+    targets:
+      - target: ${OGELFY_1_URL}:443
+        weight: 100
+      - target: ${OGELFY_2_URL}:443
+        weight: 100
+      - target: ${OGELFY_3_URL}:443
+        weight: 100
+
+# Global plugins
+plugins:
+  # Rate limiting (in-memory for Railway, Redis requires external service)
+  - name: rate-limiting
+    config:
+      minute: 1000
+      hour: 50000
+      policy: local  # Use 'redis' if Redis is available
+      fault_tolerant: true
+      hide_client_headers: false
+
+  # CORS
+  - name: cors
+    config:
+      origins:
+        - "*"
+      methods:
+        - GET
+        - POST
+        - PUT
+        - DELETE
+        - PATCH
+        - OPTIONS
+      headers:
+        - Accept
+        - Authorization
+        - Content-Type
+        - X-Request-Id
+      exposed_headers:
+        - X-Request-Id
+        - X-RateLimit-Limit
+        - X-RateLimit-Remaining
+      credentials: true
+      max_age: 3600
+      preflight_continue: false
+
+  # Request/Response correlation
+  - name: correlation-id
+    config:
+      header_name: X-Request-Id
+      generator: uuid
+      echo_downstream: true
+
+  # Prometheus metrics
+  - name: prometheus
+    config:
+      per_consumer: true
+      status_code_metrics: true
+      latency_metrics: true
+      bandwidth_metrics: true
+      upstream_health_metrics: true
+
+  # Request logging
+  - name: file-log
+    config:
+      path: /dev/stdout
+      reopen: true
+
+  # Response transformation (add server header)
+  - name: response-transformer
+    config:
+      add:
+        headers:
+          - X-Powered-By:Ogelfy-Kong

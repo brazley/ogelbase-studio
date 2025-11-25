@@ -1,0 +1,24 @@
+FROM kong:3.4-alpine
+
+# Install Kong plugins (if needed beyond bundled)
+USER root
+
+# Copy Kong configuration files
+COPY kong.conf /etc/kong/kong.conf
+COPY kong.yml /app/kong.yml
+
+# Validate Kong configuration
+RUN kong check /etc/kong/kong.conf
+
+# Run as Kong user
+USER kong
+
+# Expose proxy and admin ports
+EXPOSE 8000 8001
+
+# Health check
+HEALTHCHECK --interval=10s --timeout=5s --start-period=10s --retries=3 \
+  CMD kong health || exit 1
+
+# Start Kong
+CMD ["kong", "docker-start"]

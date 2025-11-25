@@ -1,0 +1,153 @@
+// ZKEB - Zero-Knowledge Encrypted Backup Database Schema
+//
+// CRITICAL SECURITY PRINCIPLE:
+// This schema is designed so that even with full database access,
+// the server CANNOT decrypt user data. All encryption keys exist
+// only on client devices and are NEVER transmitted to the server.
+//
+// Zero-Knowledge Guarantees:
+// ✅ No encryption keys stored (UMK, DMK, BEK, MEK)
+// ✅ No passwords stored (only PBKDF2 hashes with 600k iterations)
+// ✅ No private keys stored (only RSA public keys for verification)
+// ✅ No plaintext user data
+// ✅ All backups are opaque encrypted blobs to the server
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// USERS
+// ============================================================================
+// Stores user accounts with hashed credentials
+// Email is hashed (SHA-256) so server cannot identify users without knowing email
+// Password uses PBKDF2 with 600k iterations (OWASP 2023 recommendation)
+
+model User {
+  id            String   @id @default(uuid())
+
+  // Hashed identifiers (zero-knowledge authentication)
+  emailHash     String   @unique  // SHA-256(email) - lookup key only
+  passwordHash  String            // PBKDF2 with 600k iterations + salt
+
+  // Metadata
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  devices       Device[]
+  backups       Backup[]
+  auditLogs     AuditLog[]
+
+  @@map("users")
+}
+
+// ============================================================================
+// DEVICES
+// ============================================================================
+// Each user can have multiple devices (iPhone, Mac, etc.)
+// Each device has a unique RSA-4096 key pair
+// CRITICAL: Only PUBLIC key is stored - private key NEVER leaves client device
+
+model Device {
+  id              String   @id @default(uuid())
+  userId          String
+
+  // Device metadata
+  deviceName      String           // User-friendly name (e.g. "iPhone 15 Pro")
+  publicKey       String           // RSA-4096 public key (SubjectPublicKeyInfo format)
+                                   // Used for signature verification only
+
+  // Activity tracking
+  lastSeenAt      DateTime @default(now())
+  createdAt       DateTime @default(now())
+
+  // Relations
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  backups         Backup[]
+
+  @@map("devices")
+  @@index([userId])
+  @@index([lastSeenAt])
+}
+
+// ============================================================================
+// BACKUPS
+// ============================================================================
+// Encrypted backup storage (zero-knowledge)
+// Server stores opaque encrypted blobs with metadata
+// CRITICAL: Server CANNOT decrypt - lacks keys (UMK, DMK, BEK)
+
+model Backup {
+  id                String   @id @default(uuid())
+  userId            String
+  deviceId          String
+
+  // ========================================================================
+  // ENCRYPTED DATA (Opaque to server - AES-256-GCM)
+  // ========================================================================
+  ciphertext        Bytes            // Encrypted payload (server cannot read)
+  nonce             Bytes            // 96-bit GCM nonce (unique per backup)
+  authTag           Bytes            // 128-bit GCM authentication tag
+
+  // ========================================================================
+  // METADATA (Unencrypted but doesn't reveal content)
+  // ========================================================================
+  sizeBytes         Int              // Total size (compressed + encrypted)
+  dataClassification String          // "Internal" | "Confidential" | "Restricted"
+                                     // Used for compliance reporting only
+
+  createdAt         DateTime @default(now())
+
+  // ========================================================================
+  // INTEGRITY VERIFICATION
+  // ========================================================================
+  signature         String           // RSA-PSS signature of (ciphertext + nonce + authTag)
+                                     // Signed with device private key
+                                     // Server verifies with device public key
+
+  // Relations
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  device            Device   @relation(fields: [deviceId], references: [id])
+
+  @@map("backups")
+  @@index([userId, createdAt(sort: Desc)])  // Fast "list user's backups" queries
+  @@index([deviceId])                        // Fast "list device's backups" queries
+  @@index([dataClassification])              // Compliance reporting queries
+}
+
+// ============================================================================
+// AUDIT LOGS
+// ============================================================================
+// Zero-knowledge audit trail for compliance (SOC 2, HIPAA, etc.)
+// Logs actions without revealing sensitive data
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  userId      String
+
+  // Action metadata
+  action      String            // "backup_created", "device_added", "login_success", etc.
+  ipAddress   String?           // Hashed or last octet zeroed for privacy
+  userAgent   String?           // Browser/device info
+  timestamp   DateTime @default(now())
+
+  // Additional context (JSON for flexibility)
+  metadata    Json?             // NO SENSITIVE DATA - use for:
+                                // - backup size, data classification
+                                // - device name (not ID)
+                                // - error codes (not error messages with data)
+
+  // Relations
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("audit_logs")
+  @@index([userId, timestamp(sort: Desc)])  // Fast "user activity" queries
+  @@index([action])                          // Compliance reports by action type
+  @@index([timestamp(sort: Desc)])           // Recent activity across all users
+}

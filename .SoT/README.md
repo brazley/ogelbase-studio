@@ -190,6 +190,28 @@ Security and compliance documentation for HIPAA-compliant zero-knowledge encrypt
 
 ---
 
+### `/sprints/sprint-ogelfy/` (Ogelfy Framework Development)
+
+**Purpose**: Build Ogelfy web framework and ZKEB server
+**Contains**:
+- `SPRINT-OGELFY.md` - Sprint plan and breakdown
+- `TICKETS.md` - 5 tickets with agent assignments
+- `STATUS.md` - Real-time sprint status
+- `JORDAN-KIM-HANDOFF.md` - Agent deployment docs
+
+**Started**: 2025-11-22
+**Duration**: 2-3 days
+**Status**: 🟢 In Progress
+
+**Key Facts**:
+- Building Bun-native web framework (Fastify-inspired)
+- 4 specialist agents deployed
+- Phase 1: Jordan Kim implementing core framework
+- Performance targets: >40k req/sec validated
+- Delivery: Production-ready framework + ZKEB server
+
+---
+
 ### `/platform-specs/REDIS_INFRASTRUCTURE.md`
 
 **Purpose**: Redis session caching specification

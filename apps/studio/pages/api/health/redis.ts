@@ -21,10 +21,20 @@ import { Tier } from '../../../lib/api/platform/connection-manager'
 import { getHotkeyDetector } from '../../../lib/api/cache/hotkey-detection'
 import type { HotkeyMetric } from '../../../lib/api/cache/hotkey-detection'
 import { logRedisOperation } from '../../../lib/api/observability/logger'
+import { getTraceContext, getTracingConfig } from '../../../lib/api/observability/tracing'
 
 interface RedisHealthResponse {
   status: 'healthy' | 'degraded' | 'unhealthy'
   timestamp: string
+  trace?: {
+    trace_id?: string
+    span_id?: string
+  }
+  tracing: {
+    enabled: boolean
+    service_name: string
+    sample_rate: number
+  }
   redis: {
     connected: boolean
     version?: string
@@ -70,9 +80,16 @@ interface RedisHealthResponse {
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse<RedisHealthResponse>) {
   if (req.method !== 'GET') {
+    const tracingConfig = getTracingConfig()
     return res.status(405).json({
       status: 'unhealthy',
       timestamp: new Date().toISOString(),
+      trace: getTraceContext(),
+      tracing: {
+        enabled: tracingConfig.enabled,
+        service_name: tracingConfig.serviceName,
+        sample_rate: tracingConfig.sampleRate,
+      },
       redis: { connected: false },
       sessionCache: {
         enabled: false,
@@ -98,9 +115,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
   try {
     // Check if Redis is configured
     if (!process.env.REDIS_URL) {
+      const tracingConfig = getTracingConfig()
       return res.status(200).json({
         status: 'degraded',
         timestamp: new Date().toISOString(),
+        trace: getTraceContext(),
+        tracing: {
+          enabled: tracingConfig.enabled,
+          service_name: tracingConfig.serviceName,
+          sample_rate: tracingConfig.sampleRate,
+        },
         redis: { connected: false },
         sessionCache: {
           enabled: false,
@@ -233,10 +257,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
       status = 'healthy'
     }
 
+    // Get trace context for correlation
+    const traceContext = getTraceContext()
+    const tracingConfig = getTracingConfig()
+
     // Build response
     const response: RedisHealthResponse = {
       status,
       timestamp: new Date().toISOString(),
+      ...(Object.keys(traceContext).length > 0 ? { trace: traceContext } : {}),
+      tracing: {
+        enabled: tracingConfig.enabled,
+        service_name: tracingConfig.serviceName,
+        sample_rate: tracingConfig.sampleRate,
+      },
       redis: {
         connected,
         version,
@@ -294,9 +328,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
       }
     }
 
+    const tracingConfig = getTracingConfig()
     return res.status(503).json({
       status: 'unhealthy',
       timestamp: new Date().toISOString(),
+      trace: getTraceContext(),
+      tracing: {
+        enabled: tracingConfig.enabled,
+        service_name: tracingConfig.serviceName,
+        sample_rate: tracingConfig.sampleRate,
+      },
       redis: { connected: false },
       sessionCache: {
         enabled: false,

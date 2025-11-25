@@ -3,6 +3,7 @@ import { EventEmitter } from 'events'
 import { Registry, Counter, Gauge, Histogram } from 'prom-client'
 import * as crypto from 'crypto-js'
 import { logger, logCircuitBreakerEvent, logRedisOperation } from '../observability/logger'
+import { traceCircuitBreakerEvent } from '../observability/tracing'
 
 const ENCRYPTION_KEY = process.env.PG_META_CRYPTO_KEY || 'SAMPLE_KEY'
 
@@ -382,6 +383,13 @@ export class DatabaseConnectionManager extends EventEmitter {
 
     // Event listeners
     breaker.on('open', () => {
+      traceCircuitBreakerEvent('open', {
+        'circuit_breaker.project_id': projectId,
+        'circuit_breaker.db_type': dbType,
+        'circuit_breaker.state': 'open',
+        'circuit_breaker.error_threshold': config.errorThresholdPercentage,
+      })
+
       logCircuitBreakerEvent({
         event: 'open',
         project_id: projectId,
@@ -393,6 +401,12 @@ export class DatabaseConnectionManager extends EventEmitter {
     })
 
     breaker.on('halfOpen', () => {
+      traceCircuitBreakerEvent('half-open', {
+        'circuit_breaker.project_id': projectId,
+        'circuit_breaker.db_type': dbType,
+        'circuit_breaker.state': 'half-open',
+      })
+
       logCircuitBreakerEvent({
         event: 'half-open',
         project_id: projectId,
@@ -404,6 +418,12 @@ export class DatabaseConnectionManager extends EventEmitter {
     })
 
     breaker.on('close', () => {
+      traceCircuitBreakerEvent('close', {
+        'circuit_breaker.project_id': projectId,
+        'circuit_breaker.db_type': dbType,
+        'circuit_breaker.state': 'closed',
+      })
+
       logCircuitBreakerEvent({
         event: 'close',
         project_id: projectId,
@@ -415,6 +435,13 @@ export class DatabaseConnectionManager extends EventEmitter {
     })
 
     breaker.on('failure', (error: any) => {
+      traceCircuitBreakerEvent('failure', {
+        'circuit_breaker.project_id': projectId,
+        'circuit_breaker.db_type': dbType,
+        'circuit_breaker.error.type': error.constructor?.name || 'UnknownError',
+        'circuit_breaker.error.message': error.message,
+      })
+
       logCircuitBreakerEvent({
         event: 'failure',
         project_id: projectId,
