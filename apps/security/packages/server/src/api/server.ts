@@ -5,6 +5,12 @@ import { rateLimitMiddleware } from '../middleware/rate-limit';
 import { corsHeaders } from '../middleware/cors';
 import { logRequest } from '../middleware/logging';
 
+// Import route registrations
+import { registerDbRoutes } from '../routes/db';
+import { registerAuthRoutes } from '../routes/auth';
+import { registerStorageRoutes } from '../routes/storage';
+import { registerHealthRoutes } from '../routes/health';
+
 // Custom error class for HTTP errors
 class HttpError extends Error {
   constructor(public status: number, message: string) {
@@ -15,16 +21,13 @@ class HttpError extends Error {
 
 const app = new Ogelfy();
 
-// Health check (no auth)
-app.get('/health', async (req) => {
-  return {
-    status: 'ok',
-    uptime: process.uptime(),
-    version: '0.1.0',
-  };
-});
+// Register all route modules
+registerHealthRoutes(app);
+registerDbRoutes(app);
+registerAuthRoutes(app);
+registerStorageRoutes(app);
 
-// Protected endpoint example
+// Protected endpoint example (legacy, kept for backwards compatibility)
 app.get('/api/backups', async (req) => {
   const start = Date.now();
 
@@ -48,4 +51,6 @@ app.get('/api/backups', async (req) => {
 });
 
 await app.listen({ port: env.PORT });
-console.log(`🚀 ZKEB Server on http://localhost:${env.PORT}`);
+console.log(`🚀 BunBun API Gateway running on http://localhost:${env.PORT}`);
+console.log(`📊 Services: Database, Auth, Storage, Meta`);
+console.log(`🔒 Security: JWT auth, rate limiting, CORS enabled`);

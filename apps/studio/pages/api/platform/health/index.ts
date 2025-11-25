@@ -38,12 +38,12 @@ async function checkPostgres(): Promise<{
   responseTime?: number
   error?: string
 }> {
-  const connectionString = process.env.PLATFORM_DATABASE_URL
+  const connectionString = process.env.DATABASE_URL || process.env.PLATFORM_DATABASE_URL
 
   if (!connectionString) {
     return {
       status: 'unhealthy',
-      error: 'PLATFORM_DATABASE_URL not configured',
+      error: 'DATABASE_URL not configured',
     }
   }
 
@@ -81,14 +81,14 @@ async function checkPlatformServices(): Promise<{
   status: 'healthy' | 'unhealthy'
   error?: string
 }> {
-  const isPlatform = process.env.NEXT_PUBLIC_PLATFORM === 'true'
+  const isPlatform = process.env.NEXT_PUBLIC_IS_PLATFORM === 'true'
 
   if (!isPlatform) {
-    return { status: 'unhealthy', error: 'Platform mode not enabled' }
+    return { status: 'unhealthy', error: 'Platform mode not enabled (NEXT_PUBLIC_IS_PLATFORM != true)' }
   }
 
   // Check if required platform environment variables are set
-  const requiredEnvVars = ['PLATFORM_DATABASE_URL', 'PLATFORM_JWT_SECRET']
+  const requiredEnvVars = ['DATABASE_URL']
 
   const missingEnvVars = requiredEnvVars.filter((envVar) => !process.env[envVar])
 

@@ -438,6 +438,58 @@ LIMIT 10;
 
 ---
 
+## BunBun API Gateway
+
+**Version**: 0.1.0 (NEW)
+
+BunBun is a unified internal API gateway that provides external endpoints for all Railway internal services (Postgres, GoTrue Auth, Storage, Postgres Meta).
+
+### Quick Start
+
+```bash
+# Development
+bun run dev
+
+# Production
+bun run start
+```
+
+### API Documentation
+
+See [BUNBUN_API.md](./BUNBUN_API.md) for complete API reference.
+
+### Key Features
+
+- 🔐 **Unified Authentication**: Service role and user JWT support
+- 🗄️ **Database Operations**: Execute queries and migrations via API
+- 👤 **Auth Proxy**: GoTrue authentication endpoints
+- 📁 **Storage Proxy**: File upload/download via API
+- 💊 **Health Checks**: Monitor all internal services
+- 🚦 **Rate Limiting**: Protect against abuse
+- 🔒 **Type-Safe**: Full TypeScript with Zod validation
+
+### Architecture
+
+```
+External API (BunBun)
+    ↓
+Railway Private Network
+    ├── Postgres (5432)
+    ├── Auth (9999)
+    ├── Storage (5000)
+    └── Meta (8080)
+```
+
+### Status
+
+✅ Implementation complete
+⏳ Deployment pending
+⏳ Integration tests pending
+
+See [BUNBUN_API_GATEWAY_COMPLETE.md](./.SoT/status-reports/BUNBUN_API_GATEWAY_COMPLETE.md) for full status.
+
+---
+
 ## License
 
 MIT License - See [LICENSE](./LICENSE) for details.
