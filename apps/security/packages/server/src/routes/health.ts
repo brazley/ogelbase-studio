@@ -1,4 +1,4 @@
-import type { Ogelfy } from '../../../ogelfy/src/index';
+import type { Ogelfy } from '../../packages/ogelfy/src/index';
 import { rateLimitMiddleware } from '../middleware/rate-limit';
 import { logRequest } from '../middleware/logging';
 import * as db from '../clients/postgres';

@@ -1,4 +1,4 @@
-import { Ogelfy } from '../../../ogelfy/src/index';
+import { Ogelfy } from '../../packages/ogelfy/src/index';
 import { env } from '../config/env';
 import { authMiddleware, generateToken } from '../middleware/auth';
 import { rateLimitMiddleware } from '../middleware/rate-limit';
@@ -10,6 +10,8 @@ import { registerDbRoutes } from '../routes/db';
 import { registerAuthRoutes } from '../routes/auth';
 import { registerStorageRoutes } from '../routes/storage';
 import { registerHealthRoutes } from '../routes/health';
+import { registerWebhookRoutes } from '../routes/webhooks';
+import { ensurePlatformUsersTable } from '../clients/platform';
 
 // Custom error class for HTTP errors
 class HttpError extends Error {
@@ -26,6 +28,7 @@ registerHealthRoutes(app);
 registerDbRoutes(app);
 registerAuthRoutes(app);
 registerStorageRoutes(app);
+registerWebhookRoutes(app);
 
 // Protected endpoint example (legacy, kept for backwards compatibility)
 app.get('/api/backups', async (req) => {
@@ -50,7 +53,15 @@ app.get('/api/backups', async (req) => {
   }
 });
 
+// Ensure platform schema exists before starting
+try {
+  await ensurePlatformUsersTable();
+  console.log('✅ Platform schema initialized');
+} catch (err) {
+  console.warn('⚠️  Could not initialize platform schema:', err);
+}
+
 await app.listen({ port: env.PORT });
 console.log(`🚀 BunBun API Gateway running on http://localhost:${env.PORT}`);
-console.log(`📊 Services: Database, Auth, Storage, Meta`);
+console.log(`📊 Services: Database, Auth, Storage, Meta, Webhooks`);
 console.log(`🔒 Security: JWT auth, rate limiting, CORS enabled`);
